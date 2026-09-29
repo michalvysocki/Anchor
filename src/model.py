@@ -12,20 +12,21 @@ class Predictor(nn.Module):
         output_layer (torch.nn.Linear): Linear output layer
     """
 
-    def __init__(self, hidden_size: int = 64):
+    def __init__(self, point_dim: int, hidden_size: int = 64):
         """
         Initialize Predictor object.
 
         Args:
+            point_dim (int): trajectory's point dimensions
             hidden_size (int): size of the hidden layers, default
             value is 64 because of experiments
         """
 
         super().__init__()
 
-        self.hidden_layer = nn.Linear(2, hidden_size)
+        self.hidden_layer = nn.Linear(point_dim, hidden_size)
         self.activation = nn.Tanh()
-        self.output_layer = nn.Linear(hidden_size, 2)
+        self.output_layer = nn.Linear(hidden_size, point_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

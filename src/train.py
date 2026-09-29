@@ -3,15 +3,16 @@ import torch
 from torch import nn
 from torch.optim import Adam
 
-from config import HIDDEN_SIZE, MODEL_PATH, SEED
+from config import HIDDEN_SIZE, SEED, ObservabilityMode, model_path
 from model import Predictor
-from toystateworld import generate_dataset
+from toystateworld import generate_dataset, observation_dim
 
 np.random.seed(seed=SEED)
 torch.manual_seed(seed=SEED)
 
 
 def training(
+    mode: ObservabilityMode,
     n_traj: int = 1000,
     len_traj: int = 20,
     burn: int = 5,
@@ -23,6 +24,7 @@ def training(
     Trains the one-step predictor model on Henon map dataset.
 
     Args:
+        mode (ObservabilityMode): insufficient or sufficient observability
         n_traj (int): number of trajectories in a dataset
         len_traj (int): length of each trajectory
         burn (int): number of points discarded from the beggining
@@ -36,9 +38,10 @@ def training(
         float: predictor's final loss
     """
 
-    X, y = generate_dataset(n_traj, len_traj, burn)
+    X, y = generate_dataset(n_traj, len_traj, burn, mode)
+    point_dim = observation_dim(mode)
 
-    model = Predictor(hidden_size=hidden_size)
+    model = Predictor(point_dim=point_dim, hidden_size=hidden_size)
     loss_fn = nn.MSELoss()
     optimizer = Adam(params=model.parameters(), lr=learning_rate)
 
@@ -54,17 +57,23 @@ def training(
         if (epoch + 1) % 500 == 0:
             print(f"Epoch: {epoch + 1:04d} | Loss: {loss.item():.4g}")
 
-    torch.save(model.state_dict(), MODEL_PATH)
+    torch.save(model.state_dict(), model_path(mode))
 
     return loss.item()
 
 
 if __name__ == "__main__":
-    training(
-        n_traj=1000,
-        len_traj=20,
-        burn=5,
-        hidden_size=64,
-        n_epochs=10000,
-        learning_rate=1e-3,
-    )
+    loss = []
+    for mode in ("insufficient", "sufficient"):
+        mode_loss = training(
+            mode=mode,
+            n_traj=1000,
+            len_traj=20,
+            burn=5,
+            hidden_size=HIDDEN_SIZE,
+            n_epochs=10000,
+            learning_rate=1e-3,
+        )
+        loss.append(f"{mode}: {mode_loss}")
+
+    print(loss)

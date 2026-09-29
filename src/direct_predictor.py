@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 
-from config import DP_HIDDEN_SIZE, K_MAX
-
 
 class DirectPredictor(nn.Module):
     """
@@ -16,23 +14,24 @@ class DirectPredictor(nn.Module):
         output_layer (torch.nn.Linear): Linear output layer
     """
 
-    def __init__(self, hidden_size: int = DP_HIDDEN_SIZE):
+    def __init__(self, k_max: int, point_dim: int, hidden_size: int):
         """
         Initialize DirectPredictor object.
 
         Args:
-            hidden_size (int): size of the hidden layers, default
-            value is 64 because of experiments
+            k_max (int): maximum length of a trajectory
+            point_dim (int): trajectory's point dimensions
+            hidden_size (int): size of the hidden layers
         """
 
         super().__init__()
 
-        self.hidden_layer1 = nn.Linear(K_MAX + 2, hidden_size)
+        self.hidden_layer1 = nn.Linear(k_max + point_dim, hidden_size)
         self.activation1 = nn.Tanh()
 
         self.hidden_layer2 = nn.Linear(hidden_size, hidden_size)
         self.activation2 = nn.Tanh()
-        self.output_layer = nn.Linear(hidden_size, 2)
+        self.output_layer = nn.Linear(hidden_size, point_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

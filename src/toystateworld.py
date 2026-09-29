@@ -1,8 +1,11 @@
+import math
 from itertools import pairwise
 
 import numpy as np
 import torch
 from torch import nn
+
+from config import ObservabilityMode
 
 
 def step(z: tuple[float, float], a: float = 1.4, b: float = 0.3) -> tuple[float, float]:
@@ -47,25 +50,6 @@ def rollout(z0: tuple[float, float], K: int) -> list[tuple[float, float]]:
     return traj
 
 
-def dist(point_a: tuple[float, float], point_b: tuple[float, float]) -> float:
-    """
-    Calculates distance between two points.
-
-    Args:
-        point_a (tuple[float, float]): 2D point
-        point_b (tuple[float, float]): 2D point
-
-    Returns:
-        float: Euclidean distance between two points
-    """
-
-    x_a, y_a = point_a
-    x_b, y_b = point_b
-    euc_dist = ((x_a - x_b) ** 2 + (y_a - y_b) ** 2) ** 0.5
-
-    return euc_dist
-
-
 def compute_drifts(
     traj_a: list[tuple[float, float]], traj_b: list[tuple[float, float]]
 ) -> list[float]:
@@ -82,21 +66,21 @@ def compute_drifts(
     """
     drifts = []
     for point_a, point_b in zip(traj_a, traj_b):
-        distance = dist(point_a, point_b)
+        distance = math.dist(point_a, point_b)
         drifts.append(distance)
 
     return drifts
 
 
 def is_trajectory_stable(
-    traj: list[tuple[float, float]], threshold: float = 10.0
+    traj: list[tuple[float, ...]], threshold: float = 10.0
 ) -> bool:
     """
     Checks if a trajectory is stable. Trajectory is unstable when
     one of it's coordinates is bigger than threshold or is a NaN value.
 
     Args:
-        traj (list[tuple[float, float]]): trajectory, list of 2D points
+        traj (list[tuple[float, ...]]): trajectory, list of N-Dimensional points
         threshold (float): number a coordinate must not exceed
 
     Returns:
@@ -104,27 +88,68 @@ def is_trajectory_stable(
     """
 
     return not any(
-        abs(point[0]) > threshold
-        or abs(point[1]) > threshold
-        or np.isnan(point[0])
-        or np.isnan(point[1])
-        for point in traj
+        abs(coord) > threshold or np.isnan(coord) for point in traj for coord in point
     )
 
 
+def observe(
+    traj: list[tuple[float, float]], mode: ObservabilityMode
+) -> list[tuple[float, ...]]:
+    """
+    Makes a projection for a trajectory implementing partial or full observability.
+
+    Args:
+        traj (list[tuple[float, float]]): trajectory of 2D points
+        mode (ObservabilityMode): Observability mode. It can be either
+            sufficient - full point in known or insufficient - only the x coordinate is shown
+
+    Returns:
+        list[tuple[float, ...]]: A trajectory in either sufficient or insufficient observability mode.
+    """
+    if mode == "insufficient":
+        output = [(p[0],) for p in traj]
+
+    elif mode == "sufficient":
+        output = list(pairwise(p[0] for p in traj))
+
+    else:
+        raise ValueError()
+
+    return output
+
+
+def observation_dim(mode: ObservabilityMode) -> int:
+    """
+    Returns the dimension of observation's points based on observability mode.
+
+    Args:
+        mode (ObservabilityMode): Sufficient or Insufficient observation mode
+
+    Returns:
+        int: observation's dimensions
+    """
+    traj = [(1.5, 1.9), (1.1, 2.1)]
+    z = observe(traj, mode)
+
+    return len(z[0])
+
+
 def generate_dataset(
-    n_traj: int, len_traj: int, burn: int
+    n_traj: int, len_traj: int, burn: int, mode: ObservabilityMode
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Generates a dataset for training model on Henon map. Creates n
     trajectories of a given length, checks if they're stable,
     deletes a given number of first points, because they are not
-    on attractor yet. For every point as an input there is a target point.
+    on attractor yet. Makes a projection for observability. For every
+    point as an input there is a target point.
 
     Args:
         n_traj (int): number of trajectories to generate
         len_traj (int): length of each single trajectory
         burn (int): number of points which will be deleted
+        mode (ObservabilityMode): Observability mode. It can be either
+            sufficient - full point in known or insufficient - only the x coordinate is shown
 
     Returns:
         tuple[torch.Tensor, torch.Tensor]: tuple of inputs and targets
@@ -140,8 +165,8 @@ def generate_dataset(
             continue
 
         traj = traj[burn:]
-
-        for ipt, target in pairwise(traj):
+        proj_traj = observe(traj, mode)
+        for ipt, target in pairwise(proj_traj):
             inputs.append(ipt)
             targets.append(target)
 
@@ -174,24 +199,27 @@ def build_horizon_input(
 
 
 def generate_horizon_dataset(
-    n_traj: int, len_traj: int, burn: int, k_max: int
+    n_traj: int, len_traj: int, burn: int, k_max: int, mode: ObservabilityMode
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Generates a dataset for training direct prediction model on
     Henon map. Creates n trajectories of a given length, checks
     if they're stable, deletes a given number of first points, because
-    they are not on attractor yet. In the dataset there are many horizons
-    for many different starting points.
+    they are not on attractor yet. Makes a projection for observability.
+    In the dataset there are many horizons for many different starting points.
 
     Args:
         n_traj (int): number of trajectories to generate
         len_traj (int): length of each single trajectory
         burn (int): number of points which will be deleted
         k_max (int): maximum step
+        mode (ObservabilityMode): Observability mode. It can be either
+            sufficient - full point in known or insufficient - only the x coordinate is shown
+
 
     Returns:
-        tuple[torch.Tensor, torch.Tensor]: tuple of
-        2D point coordinates and one-hot encoded steps
+        tuple[torch.Tensor, torch.Tensor]: tuple of point
+        coordinates and one-hot encoded steps
     """
 
     inputs = []
@@ -204,15 +232,16 @@ def generate_horizon_dataset(
             continue
 
         traj = traj[burn:]
-        T = len(traj)
+        proj_traj = observe(traj, mode)
+        T = len(proj_traj)
 
         for t in range(T - 1):
             steps_till_end = T - 1 - t
             real_k_max = min(k_max, steps_till_end)
 
             for k in range(1, real_k_max + 1):
-                ipt = build_horizon_input(traj[t], k, k_max)
-                target = traj[t + k]
+                ipt = build_horizon_input(proj_traj[t], k, k_max)
+                target = proj_traj[t + k]
                 inputs.append(ipt)
                 targets.append(target)
 

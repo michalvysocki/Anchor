@@ -3,15 +3,22 @@ import torch
 from torch import nn
 from torch.optim import Adam
 
-from config import DIRECT_MODEL_PATH, DP_HIDDEN_SIZE, K_MAX, SEED
+from config import (
+    DP_HIDDEN_SIZE,
+    K_MAX,
+    SEED,
+    ObservabilityMode,
+    direct_model_path,
+)
 from direct_predictor import DirectPredictor
-from toystateworld import generate_horizon_dataset
+from toystateworld import generate_horizon_dataset, observation_dim
 
 np.random.seed(seed=SEED)
 torch.manual_seed(seed=SEED)
 
 
 def training_direct(
+    mode: ObservabilityMode,
     n_traj: int = 1000,
     len_traj: int = 20,
     burn: int = 5,
@@ -24,6 +31,7 @@ def training_direct(
     Trains the direct predictor model on Henon map dataset.
 
     Args:
+        mode (ObservabilityMode): insufficient or sufficient observation projection
         n_traj (int): number of trajectories in a dataset
         len_traj (int): length of each trajectory
         burn (int): number of points discarded from the beggining
@@ -38,9 +46,10 @@ def training_direct(
         float: predictor's final loss
     """
 
-    X, y = generate_horizon_dataset(n_traj, len_traj, burn, k_max)
+    X, y = generate_horizon_dataset(n_traj, len_traj, burn, k_max, mode)
+    point_dim = observation_dim(mode)
 
-    model = DirectPredictor(hidden_size=hidden_size)
+    model = DirectPredictor(k_max=k_max, point_dim=point_dim, hidden_size=hidden_size)
     loss_fn = nn.MSELoss()
     optimizer = Adam(params=model.parameters(), lr=learning_rate)
 
@@ -56,18 +65,24 @@ def training_direct(
         if (epoch + 1) % 500 == 0:
             print(f"Epoch: {epoch + 1:04d} | Loss: {loss.item():.4g}")
 
-    torch.save(model.state_dict(), DIRECT_MODEL_PATH)
+    torch.save(model.state_dict(), direct_model_path(mode))
 
     return loss.item()
 
 
 if __name__ == "__main__":
-    training_direct(
-        n_traj=1000,
-        len_traj=20,
-        burn=5,
-        k_max=25,
-        hidden_size=DP_HIDDEN_SIZE,
-        n_epochs=20000,
-        learning_rate=1e-3,
-    )
+    loss = []
+    for mode in ("insufficient", "sufficient"):
+        mode_loss = training_direct(
+            mode=mode,
+            n_traj=1000,
+            len_traj=20,
+            burn=5,
+            k_max=K_MAX,
+            hidden_size=DP_HIDDEN_SIZE,
+            n_epochs=20000,
+            learning_rate=1e-3,
+        )
+        loss.append(f"{mode}: {mode_loss}")
+
+    print(loss)
