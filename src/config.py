@@ -5,9 +5,13 @@ from typing import Literal
 ObservabilityMode = Literal["insufficient", "sufficient"]
 
 SEED = 42
+TRAIN_DATA_SEED = 0
+TEST_DATA_SEED = 1
+VAL_DATA_SEED = 2
 HIDDEN_SIZE = 64
 DP_HIDDEN_SIZE = 256
 K_MAX = 20
+BURN_IN = 10
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = PROJECT_ROOT / "models"

@@ -135,7 +135,11 @@ def observation_dim(mode: ObservabilityMode) -> int:
 
 
 def generate_dataset(
-    n_traj: int, len_traj: int, burn: int, mode: ObservabilityMode
+    n_traj: int,
+    len_traj: int,
+    burn: int,
+    mode: ObservabilityMode,
+    rng: np.random.Generator,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Generates a dataset for training model on Henon map. Creates n
@@ -150,6 +154,7 @@ def generate_dataset(
         burn (int): number of points which will be deleted
         mode (ObservabilityMode): Observability mode. It can be either
             sufficient - full point in known or insufficient - only the x coordinate is shown
+        rng (np.random.Generator): generator for initial points
 
     Returns:
         tuple[torch.Tensor, torch.Tensor]: tuple of inputs and targets
@@ -159,7 +164,7 @@ def generate_dataset(
     targets = []
 
     for _ in range(n_traj):
-        z0 = np.random.uniform(-1, 1, 2)
+        z0 = rng.uniform(-1, 1, 2)
         traj = rollout(z0, len_traj)
         if not is_trajectory_stable(traj):
             continue
@@ -199,14 +204,20 @@ def build_horizon_input(
 
 
 def generate_horizon_dataset(
-    n_traj: int, len_traj: int, burn: int, k_max: int, mode: ObservabilityMode
+    n_traj: int,
+    len_traj: int,
+    burn: int,
+    k_max: int,
+    mode: ObservabilityMode,
+    rng: np.random.Generator,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Generates a dataset for training direct prediction model on
     Henon map. Creates n trajectories of a given length, checks
     if they're stable, deletes a given number of first points, because
     they are not on attractor yet. Makes a projection for observability.
-    In the dataset there are many horizons for many different starting points.
+    Only starting points that can reach k_max are used, so every horizon
+    from 1 to k_max has the same number of samples.
 
     Args:
         n_traj (int): number of trajectories to generate
@@ -215,7 +226,7 @@ def generate_horizon_dataset(
         k_max (int): maximum step
         mode (ObservabilityMode): Observability mode. It can be either
             sufficient - full point in known or insufficient - only the x coordinate is shown
-
+        rng (np.random.Generator): generator for initial points
 
     Returns:
         tuple[torch.Tensor, torch.Tensor]: tuple of point
@@ -226,7 +237,7 @@ def generate_horizon_dataset(
     targets = []
 
     for _ in range(n_traj):
-        z0 = np.random.uniform(-1, 1, 2)
+        z0 = rng.uniform(-1, 1, 2)
         traj = rollout(z0, len_traj)
         if not is_trajectory_stable(traj):
             continue
@@ -234,12 +245,13 @@ def generate_horizon_dataset(
         traj = traj[burn:]
         proj_traj = observe(traj, mode)
         T = len(proj_traj)
+        if T <= k_max:
+            raise ValueError(
+                f"Trajectory too short: {T} points after burn-in, need more than {k_max}"
+            )
 
-        for t in range(T - 1):
-            steps_till_end = T - 1 - t
-            real_k_max = min(k_max, steps_till_end)
-
-            for k in range(1, real_k_max + 1):
+        for t in range(T - k_max):
+            for k in range(1, k_max + 1):
                 ipt = build_horizon_input(proj_traj[t], k, k_max)
                 target = proj_traj[t + k]
                 inputs.append(ipt)

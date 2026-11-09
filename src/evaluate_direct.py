@@ -5,10 +5,11 @@ import numpy as np
 import torch
 
 from config import (
+    BURN_IN,
     DP_HIDDEN_SIZE,
     K_MAX,
     RESULTS_DIR,
-    SEED,
+    TEST_DATA_SEED,
     ObservabilityMode,
     direct_model_path,
 )
@@ -21,8 +22,6 @@ from toystateworld import (
     rollout,
 )
 
-np.random.seed(seed=SEED)
-
 
 def average_diff(
     model: DirectPredictor,
@@ -30,6 +29,7 @@ def average_diff(
     burn_in: int,
     k_max: int,
     mode: ObservabilityMode,
+    rng: np.random.Generator,
 ) -> tuple[list[np.ndarray], int, int, int]:
     """
     Compute average difference between direct prediction and true
@@ -42,6 +42,7 @@ def average_diff(
         burn_in (int): number of discarded points from trajectory
         k_max (int): maximum number of steps to predict to
         mode (ObservabilityMode): insufficient or sufficient observability
+        rng (np.random.Generator): generator for initial points
 
     Returns:
         tuple[list[np.ndarray], int, int]: list of average differences
@@ -56,7 +57,7 @@ def average_diff(
     for k in range(1, k_max + 1):
         diffs_k = []
         for i in range(n_samples):
-            z0_raw = np.random.uniform(-1, 1, 2)
+            z0_raw = rng.uniform(-1, 1, 2)
             full_traj = rollout(z0_raw, burn_in + k)
             if not is_trajectory_stable(full_traj):
                 unstable_traj += 1
@@ -102,7 +103,7 @@ def evaluate_direct(n_samples: int, k_max: int, burn_in: int):
 
         with torch.inference_mode():
             means, n_unstable, n_unstable_true = average_diff(
-                model, n_samples, burn_in, k_max, mode
+                model, n_samples, burn_in, k_max, mode, np.random.default_rng(TEST_DATA_SEED)
             )
 
         print(f"Unstable warmup trajectories: {n_unstable}/{k_max * n_samples}")
@@ -122,4 +123,4 @@ def evaluate_direct(n_samples: int, k_max: int, burn_in: int):
         
 
 if __name__ == "__main__":
-    evaluate_direct(1000, K_MAX, 5)
+    evaluate_direct(1000, K_MAX, BURN_IN)
