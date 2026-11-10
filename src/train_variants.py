@@ -33,7 +33,7 @@ LAMBDAS = (0.1, 0.3, 1.0, 3.0)
 N_TRAJ = 1000
 LEN_TRAJ = 36
 LEARNING_RATE = 1e-3
-N_STEPS = 20000
+N_STEPS = 40000
 BATCH_WINDOWS = 512
 # rollouts backpropagate through up to K_MAX chaotic steps; applied to every
 # variant so the optimization is the same for all of them
