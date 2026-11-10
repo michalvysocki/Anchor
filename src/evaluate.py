@@ -129,14 +129,21 @@ def evaluate(n_samples: int, K: int, burn_in: int, seed: int):
 
         with torch.inference_mode():
             medians, diverged_rate, n_unstable = average_drift(
-                model, n_samples, K, burn_in, mode, np.random.default_rng(TEST_DATA_SEED)
+                model,
+                n_samples,
+                K,
+                burn_in,
+                mode,
+                np.random.default_rng(TEST_DATA_SEED),
             )
 
         print(f"Unstable true trajectories: {n_unstable}/{n_samples}")
         print(f"Diverged model rollouts at k={K}: {diverged_rate[-1]:.1%}")
 
         np.save(RESULTS_DIR / f"baseline_drift_medians_{mode}_seed{seed}.npy", medians)
-        np.save(RESULTS_DIR / f"baseline_diverged_rate_{mode}_seed{seed}.npy", diverged_rate)
+        np.save(
+            RESULTS_DIR / f"baseline_diverged_rate_{mode}_seed{seed}.npy", diverged_rate
+        )
 
         plt.cla()
         plt.semilogy(list(range(1, K + 1)), medians[1:])

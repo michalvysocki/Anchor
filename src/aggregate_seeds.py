@@ -75,7 +75,9 @@ def print_table(mode: str, agg: dict[str, np.ndarray]):
     w, w_h = mean_ci(agg["win"])
     s, _ = mean_ci(agg["spearman"])
 
-    print(f"\n{mode} (median test error, mean over {len(TRAINING_SEEDS)} seeds, 95% CI)")
+    print(
+        f"\n{mode} (median test error, mean over {len(TRAINING_SEEDS)} seeds, 95% CI)"
+    )
     print(" k | direct            | rollout           | P(direct<rollout) | Spearman")
     for k in range(K_MAX):
         print(

@@ -260,3 +260,72 @@ def generate_horizon_dataset(
     return torch.tensor(inputs, dtype=torch.float32), torch.tensor(
         targets, dtype=torch.float32
     )
+
+
+def generate_windows(
+    n_traj: int,
+    len_traj: int,
+    burn: int,
+    k_max: int,
+    mode: ObservabilityMode,
+    rng: np.random.Generator,
+) -> torch.Tensor:
+    """
+    Generates trajectory windows for training with predictive paths.
+    Each window is a starting point followed by k_max true points, so
+    a direct target, any intermediate observation and any decomposition
+    k = p + q can be read from the same window. Uses the same trajectories
+    and starting points as generate_horizon_dataset.
+
+    Args:
+        n_traj (int): number of trajectories to generate
+        len_traj (int): length of each single trajectory
+        burn (int): number of points which will be deleted
+        k_max (int): maximum step
+        mode (ObservabilityMode): Observability mode. It can be either
+            sufficient - full point in known or insufficient - only the x coordinate is shown
+        rng (np.random.Generator): generator for initial points
+
+    Returns:
+        torch.Tensor: windows of size (n_windows, k_max + 1, point_dim)
+    """
+
+    windows = []
+
+    for _ in range(n_traj):
+        z0 = rng.uniform(-1, 1, 2)
+        traj = rollout(z0, len_traj)
+        if not is_trajectory_stable(traj):
+            continue
+
+        traj = traj[burn:]
+        proj_traj = observe(traj, mode)
+        T = len(proj_traj)
+        if T <= k_max:
+            raise ValueError(
+                f"Trajectory too short: {T} points after burn-in, need more than {k_max}"
+            )
+
+        for t in range(T - k_max):
+            windows.append(proj_traj[t : t + k_max + 1])
+
+    return torch.tensor(windows, dtype=torch.float32)
+
+
+def horizon_input(z: torch.Tensor, k: torch.Tensor, k_max: int) -> torch.Tensor:
+    """
+    Batched version of build_horizon_input: concatenates points with
+    one-hot encoded horizons.
+
+    Args:
+        z (torch.Tensor): points of size (batch, point_dim)
+        k (torch.Tensor): horizons from 1 to k_max of size (batch,)
+        k_max (int): maximum step
+
+    Returns:
+        torch.Tensor: model input of size (batch, point_dim + k_max)
+    """
+
+    one_hot = nn.functional.one_hot(k - 1, k_max).to(z.dtype)
+
+    return torch.cat([z, one_hot], dim=1)

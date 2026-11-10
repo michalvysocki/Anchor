@@ -7,7 +7,12 @@ from torch import nn
 
 from config import BURN_IN, K_MAX, TEST_DATA_SEED, TRAIN_DATA_SEED, VAL_DATA_SEED
 from evaluate import average_drift
-from toystateworld import generate_dataset, generate_horizon_dataset
+from toystateworld import (
+    generate_dataset,
+    generate_horizon_dataset,
+    generate_windows,
+    horizon_input,
+)
 
 MODES = ("insufficient", "sufficient")
 
@@ -64,3 +69,22 @@ def test_diverged_rollouts_are_counted_not_dropped():
 
     assert diverged_rate[-1] == 1.0
     assert np.isinf(medians[-1])
+
+
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
+@pytest.mark.parametrize("mode", MODES)
+def test_windows_match_horizon_dataset(mode):
+    X, y = generate_horizon_dataset(
+        30, 36, BURN_IN, K_MAX, mode, np.random.default_rng(TRAIN_DATA_SEED)
+    )
+    windows = generate_windows(
+        30, 36, BURN_IN, K_MAX, mode, np.random.default_rng(TRAIN_DATA_SEED)
+    )
+
+    n = windows.shape[0]
+    k = torch.arange(1, K_MAX + 1).repeat(n)
+    starts = windows[:, 0].repeat_interleave(K_MAX, dim=0)
+    targets = windows[:, 1:].reshape(n * K_MAX, -1)
+
+    assert torch.equal(horizon_input(starts, k, K_MAX), X)
+    assert torch.equal(targets, y)

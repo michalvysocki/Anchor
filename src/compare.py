@@ -205,9 +205,7 @@ def paired_error_correlation(
     """
     rng = np.random.default_rng(seed)
 
-    finite = np.isfinite(dir_errors).all(axis=1) & np.isfinite(roll_errors).all(
-        axis=1
-    )
+    finite = np.isfinite(dir_errors).all(axis=1) & np.isfinite(roll_errors).all(axis=1)
     log_dir = np.log(dir_errors[finite] + eps)
     log_roll = np.log(roll_errors[finite] + eps)
 

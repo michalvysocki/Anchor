@@ -99,13 +99,18 @@ def evaluate_direct(n_samples: int, k_max: int, burn_in: int, seed: int):
         weights = torch.load(direct_model_path(mode, seed), weights_only=True)
         model = DirectPredictor(
             k_max, point_dim=observation_dim(mode), hidden_size=DP_HIDDEN_SIZE
-        ) 
+        )
         model.load_state_dict(weights)
         model.eval()
 
         with torch.inference_mode():
             means, n_unstable, n_unstable_true = average_diff(
-                model, n_samples, burn_in, k_max, mode, np.random.default_rng(TEST_DATA_SEED)
+                model,
+                n_samples,
+                burn_in,
+                k_max,
+                mode,
+                np.random.default_rng(TEST_DATA_SEED),
             )
 
         print(f"Unstable warmup trajectories: {n_unstable}/{k_max * n_samples}")
@@ -117,12 +122,13 @@ def evaluate_direct(n_samples: int, k_max: int, burn_in: int, seed: int):
         plt.semilogy(list(range(1, k_max + 1)), means)
         plt.xlabel("Prediction step k")
         plt.ylabel("Difference ||true - predicted||")
-        plt.title(f"Average differences, direct prediction, {mode} mode (n={n_samples}, k_max={k_max})")
+        plt.title(
+            f"Average differences, direct prediction, {mode} mode (n={n_samples}, k_max={k_max})"
+        )
         plt.grid()
         plt.savefig(RESULTS_DIR / f"direct_diff_plot_{mode}_seed{seed}.png", dpi=150)
         plt.show()
 
-        
 
 if __name__ == "__main__":
     for seed in TRAINING_SEEDS:
