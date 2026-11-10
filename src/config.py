@@ -12,17 +12,19 @@ HIDDEN_SIZE = 64
 DP_HIDDEN_SIZE = 256
 K_MAX = 20
 BURN_IN = 10
+TRAINING_SEEDS = (0, 1, 2, 3, 4)
+DEVICE = "cpu"
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = PROJECT_ROOT / "models"
 
 
-def model_path(mode: ObservabilityMode) -> Path:
-    return MODELS_DIR / f"predictor_{mode}.pt"
+def model_path(mode: ObservabilityMode, seed: int) -> Path:
+    return MODELS_DIR / f"predictor_{mode}_seed{seed}.pt"
 
 
-def direct_model_path(mode: ObservabilityMode) -> Path:
-    return MODELS_DIR / f"direct_predictor_{mode}.pt"
+def direct_model_path(mode: ObservabilityMode, seed: int) -> Path:
+    return MODELS_DIR / f"direct_predictor_{mode}_seed{seed}.pt"
 
 
 RESULTS_DIR = PROJECT_ROOT / "results"

@@ -10,6 +10,7 @@ from config import (
     K_MAX,
     RESULTS_DIR,
     TEST_DATA_SEED,
+    TRAINING_SEEDS,
     ObservabilityMode,
     direct_model_path,
 )
@@ -82,7 +83,7 @@ def average_diff(
     return (diffs, unstable_traj, unstable_proj_traj)
 
 
-def evaluate_direct(n_samples: int, k_max: int, burn_in: int):
+def evaluate_direct(n_samples: int, k_max: int, burn_in: int, seed: int):
     """
     Evaluates the direct predictor model in both sufficient and insufficient
     projection modes. Computes and measures unstability. Saves metrics to a .npy
@@ -92,9 +93,10 @@ def evaluate_direct(n_samples: int, k_max: int, burn_in: int):
         n_samples (int): number of trajectories in the dataset
         k_max (int): maximum length of the trajectory
         burn_in (int): number of burned samples from the beginning of the trajectory
+        seed (int): training seed of the evaluated model
     """
     for mode in ("insufficient", "sufficient"):
-        weights = torch.load(direct_model_path(mode), weights_only=True)
+        weights = torch.load(direct_model_path(mode, seed), weights_only=True)
         model = DirectPredictor(
             k_max, point_dim=observation_dim(mode), hidden_size=DP_HIDDEN_SIZE
         ) 
@@ -109,7 +111,7 @@ def evaluate_direct(n_samples: int, k_max: int, burn_in: int):
         print(f"Unstable warmup trajectories: {n_unstable}/{k_max * n_samples}")
         print(f"Unstable projected trajectories: {n_unstable_true}/{k_max * n_samples}")
 
-        np.save(RESULTS_DIR / f"direct_diff_means_{mode}.npy", means)
+        np.save(RESULTS_DIR / f"direct_diff_means_{mode}_seed{seed}.npy", means)
 
         plt.cla()
         plt.semilogy(list(range(1, k_max + 1)), means)
@@ -117,10 +119,11 @@ def evaluate_direct(n_samples: int, k_max: int, burn_in: int):
         plt.ylabel("Difference ||true - predicted||")
         plt.title(f"Average differences, direct prediction, {mode} mode (n={n_samples}, k_max={k_max})")
         plt.grid()
-        plt.savefig(RESULTS_DIR / f"direct_diff_plot_{mode}.png", dpi=150)
+        plt.savefig(RESULTS_DIR / f"direct_diff_plot_{mode}_seed{seed}.png", dpi=150)
         plt.show()
 
         
 
 if __name__ == "__main__":
-    evaluate_direct(1000, K_MAX, BURN_IN)
+    for seed in TRAINING_SEEDS:
+        evaluate_direct(1000, K_MAX, BURN_IN, seed)

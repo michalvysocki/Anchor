@@ -7,6 +7,7 @@ from config import (
     HIDDEN_SIZE,
     RESULTS_DIR,
     TEST_DATA_SEED,
+    TRAINING_SEEDS,
     ObservabilityMode,
     model_path,
 )
@@ -108,7 +109,7 @@ def average_drift(
     )
 
 
-def evaluate(n_samples: int, K: int, burn_in: int):
+def evaluate(n_samples: int, K: int, burn_in: int, seed: int):
     """
     Evaluates the predictor model in both sufficient and insufficient
     projection modes. Computes median drift and the fraction of diverged
@@ -118,9 +119,10 @@ def evaluate(n_samples: int, K: int, burn_in: int):
         n_samples (int): number of trajectories in the dataset
         K (int): length of the trajectory
         burn_in (int): number of burned samples from the beginning of the trajectory
+        seed (int): training seed of the evaluated model
     """
     for mode in ("insufficient", "sufficient"):
-        weights = torch.load(model_path(mode), weights_only=True)
+        weights = torch.load(model_path(mode, seed), weights_only=True)
         model = Predictor(point_dim=observation_dim(mode), hidden_size=HIDDEN_SIZE)
         model.load_state_dict(weights)
         model.eval()
@@ -133,8 +135,8 @@ def evaluate(n_samples: int, K: int, burn_in: int):
         print(f"Unstable true trajectories: {n_unstable}/{n_samples}")
         print(f"Diverged model rollouts at k={K}: {diverged_rate[-1]:.1%}")
 
-        np.save(RESULTS_DIR / f"baseline_drift_medians_{mode}.npy", medians)
-        np.save(RESULTS_DIR / f"baseline_diverged_rate_{mode}.npy", diverged_rate)
+        np.save(RESULTS_DIR / f"baseline_drift_medians_{mode}_seed{seed}.npy", medians)
+        np.save(RESULTS_DIR / f"baseline_diverged_rate_{mode}_seed{seed}.npy", diverged_rate)
 
         plt.cla()
         plt.semilogy(list(range(1, K + 1)), medians[1:])
@@ -142,9 +144,10 @@ def evaluate(n_samples: int, K: int, burn_in: int):
         plt.ylabel("Median drift ||true - predicted||")
         plt.title(f"Median drift, baseline, {mode} mode (n={n_samples}, K={K})")
         plt.grid()
-        plt.savefig(RESULTS_DIR / f"baseline_drift_plot_{mode}.png", dpi=150)
+        plt.savefig(RESULTS_DIR / f"baseline_drift_plot_{mode}_seed{seed}.png", dpi=150)
         plt.show()
 
 
 if __name__ == "__main__":
-    evaluate(1000, 50, BURN_IN)
+    for seed in TRAINING_SEEDS:
+        evaluate(1000, 50, BURN_IN, seed)

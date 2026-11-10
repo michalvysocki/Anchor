@@ -27,6 +27,7 @@ if __name__ == "__main__":
                 hidden_size=hidden_size,
                 n_epochs=n_epochs,
                 learning_rate=learning_rate,
+                seed=rep,
             )
             loss_pair.append(loss)
 

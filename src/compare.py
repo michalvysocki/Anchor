@@ -12,6 +12,7 @@ from config import (
     RESULTS_DIR,
     SEED,
     TEST_DATA_SEED,
+    TRAINING_SEEDS,
     ObservabilityMode,
     direct_model_path,
     model_path,
@@ -230,10 +231,10 @@ def paired_error_correlation(
     }
 
 
-def main():
+def main(seed: int):
     for mode in ("insufficient", "sufficient"):
-        rollout_weights = torch.load(model_path(mode), weights_only=True)
-        direct_weights = torch.load(direct_model_path(mode), weights_only=True)
+        rollout_weights = torch.load(model_path(mode, seed), weights_only=True)
+        direct_weights = torch.load(direct_model_path(mode, seed), weights_only=True)
         rollout_model = Predictor(observation_dim(mode), HIDDEN_SIZE)
         direct_model = DirectPredictor(K_MAX, observation_dim(mode), DP_HIDDEN_SIZE)
         rollout_model.load_state_dict(rollout_weights)
@@ -254,7 +255,7 @@ def main():
         )
 
         np.savez(
-            RESULTS_DIR / f"paired_errors_{mode}.npz",
+            RESULTS_DIR / f"paired_errors_{mode}_seed{seed}.npz",
             dir_errors=dirct,
             roll_errors=roll,
             n_unstable=n_unstable,
@@ -265,7 +266,7 @@ def main():
             **corr,
         )
 
-        print(f"\n{mode} | unstable initial points: {n_unstable}")
+        print(f"\n{mode} seed {seed} | unstable initial points: {n_unstable}")
         print(f"rows excluded from Pearson: {corr['n_excluded']}")
         print(" k | med dir | med roll | Pearson log [CI] | Spearman [CI]")
         for k in range(K_MAX):
@@ -280,7 +281,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    for seed in TRAINING_SEEDS:
+        main(seed)
 
 
 # baseline_means = np.load(RESULTS_DIR / "baseline_drift_means.npy")
