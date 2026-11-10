@@ -52,6 +52,8 @@ VARIANTS = {
     "D": ("onestep", anchor_loss_rollout, "rollout"),
 }
 
+PATHS = ("direct", "rollout")
+
 VARIANT_MODELS_DIR = MODELS_DIR / "variants"
 VARIANT_RESULTS_DIR = RESULTS_DIR / "variants"
 
@@ -69,10 +71,13 @@ def train_variant(
     n_steps: int = N_STEPS,
 ) -> float:
     """
-    Trains one variant and saves the checkpoint with the lowest validation
-    error of its selection path: the direct prediction F(z, k) or the
-    unit-step rollout F(., 1)^k, both averaged over every horizon, so the
-    selection does not reward consistency itself.
+    Trains one variant and saves two checkpoints: the one with the lowest
+    validation error of the direct prediction F(z, k) and the one with the
+    lowest validation error of the unit-step rollout F(., 1)^k, both averaged
+    over every horizon. Each path is later evaluated with its own checkpoint,
+    so no variant is judged on a path its checkpoint was not selected for.
+    The variant's selection path decides which value is returned for the
+    choice of lambda.
 
     Every variant trains the same model F(z, k) with the same number of
     steps, minibatches of windows, learning rate and gradient clipping.
@@ -86,7 +91,7 @@ def train_variant(
         n_steps (int): number of optimization steps
 
     Returns:
-        float: best validation loss
+        float: best validation error of the variant's selection path
     """
 
     family, aux_loss, select = VARIANTS[variant]
@@ -113,8 +118,7 @@ def train_variant(
         base_loss, aux_model = one_step_loss, unit
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    best_val_loss = float("inf")
-    best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+    best = {path: {"val": float("inf"), "step": 0, "state": None} for path in PATHS}
 
     for step in range(n_steps):
         model.train()
@@ -136,13 +140,16 @@ def train_variant(
                     "direct": grounding_loss(model, val).item(),
                     "rollout": rollout_error(unit, val).item(),
                 }
-            val_loss = val_errors[select]
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_errors = val_errors
-                best_state = {
-                    k: v.detach().cpu().clone() for k, v in model.state_dict().items()
-                }
+            for path in PATHS:
+                if val_errors[path] < best[path]["val"]:
+                    best[path] = {
+                        "val": val_errors[path],
+                        "step": step + 1,
+                        "state": {
+                            k: v.detach().cpu().clone()
+                            for k, v in model.state_dict().items()
+                        },
+                    }
             print(
                 f"{run_name(variant, mode, lam, seed)} | Step: {step + 1:05d} | "
                 f"Loss: {loss.item():.4g} | Val direct: {val_errors['direct']:.4g} | "
@@ -152,24 +159,22 @@ def train_variant(
     name = run_name(variant, mode, lam, seed)
     VARIANT_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     VARIANT_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    torch.save(best_state, VARIANT_MODELS_DIR / f"{name}.pt")
+    summary = {
+        "variant": variant,
+        "mode": mode,
+        "lambda": lam,
+        "seed": seed,
+        "steps": n_steps,
+        "selected_by": select,
+    }
+    for path in PATHS:
+        torch.save(best[path]["state"], VARIANT_MODELS_DIR / f"{name}_{path}.pt")
+        summary[f"val_{path}"] = best[path]["val"]
+        summary[f"best_step_{path}"] = best[path]["step"]
     with open(VARIANT_RESULTS_DIR / f"{name}.json", "w") as f:
-        json.dump(
-            {
-                "variant": variant,
-                "mode": mode,
-                "lambda": lam,
-                "seed": seed,
-                "steps": n_steps,
-                "selected_by": select,
-                "best_val_loss": best_val_loss,
-                "val_direct": best_errors["direct"],
-                "val_rollout": best_errors["rollout"],
-            },
-            f,
-        )
+        json.dump(summary, f)
 
-    return best_val_loss
+    return best[select]["val"]
 
 
 def best_lambda(variant: str, mode: ObservabilityMode, seed: int) -> float:
@@ -179,7 +184,7 @@ def best_lambda(variant: str, mode: ObservabilityMode, seed: int) -> float:
         with open(
             VARIANT_RESULTS_DIR / f"{run_name(variant, mode, lam, seed)}.json"
         ) as f:
-            losses[lam] = json.load(f)["best_val_loss"]
+            losses[lam] = json.load(f)[f"val_{VARIANTS[variant][2]}"]
 
     return min(losses, key=losses.get)
 
