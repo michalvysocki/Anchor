@@ -1,0 +1,1 @@
+{"variant": "C", "mode": "insufficient", "lambda": 3.0, "seed": 1, "steps": 40000, "selected_by": "rollout", "val_direct": 1.2370660305023193, "best_step_direct": 35500, "val_rollout": 0.4800572097301483, "best_step_rollout": 7500}
