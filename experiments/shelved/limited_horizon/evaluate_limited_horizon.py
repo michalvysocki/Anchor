@@ -1,40 +1,22 @@
 """Test-set evaluation of the shelved limited-horizon experiment, see README.md in this directory."""
 
 import json
-import sys
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
 from run_limited_horizon import FAMILIES, LH_MODELS_DIR, LH_RESULTS_DIR, best_setting
 
-from config import (
-    BURN_IN,
-    DP_HIDDEN_SIZE,
-    K_MAX,
-    TEST_DATA_SEED,
-    TRAINING_SEEDS,
-)
-from direct_predictor import DirectPredictor
-from evaluate_variants import (
-    COLORS,
-    MODES,
-    N_OFF_WINDOWS,
-    attractor_points,
-    mean_ci,
-    off_attractor,
-    path_errors,
-    sharpness,
-    to_lists,
-)
-from toystateworld import generate_windows, observation_dim
-from train_variants import LEN_TRAJ, N_TRAJ, run_name
+from anchor.config import BURN_IN, K_MAX, TEST_DATA_SEED, TRAINING_SEEDS
+from anchor.envs.henon import attractor_points, generate_windows, observation_dim
+from anchor.metrics import mean_ci, off_attractor, path_errors, sharpness, to_lists
+from anchor.models import HorizonMLP
+from anchor.plotting import VARIANT_COLORS
+from anchor.training import HIDDEN_SIZE, LEN_TRAJ, N_TRAJ, run_name
 
+MODES = ("insufficient", "sufficient")
+# exact nearest-neighbour search is costly; a median needs only a subset
+N_OFF_WINDOWS = 1000
 BASELINE = "onestep"
 VARIANTS = [BASELINE] + [v for family in FAMILIES.values() for v in family]
 
@@ -47,11 +29,11 @@ def setting(variant: str) -> tuple[int | None, float]:
     return best_setting(variant)
 
 
-def load_model(variant: str, mode: str, seed: int) -> DirectPredictor:
+def load_model(variant: str, mode: str, seed: int) -> HorizonMLP:
     """Loads the rollout checkpoint of one final run."""
     max_horizon, lam = setting(variant)
     name = run_name(variant, mode, lam, seed, max_horizon)
-    model = DirectPredictor(K_MAX, observation_dim(mode), DP_HIDDEN_SIZE)
+    model = HorizonMLP(K_MAX, observation_dim(mode), HIDDEN_SIZE)
     model.load_state_dict(
         torch.load(LH_MODELS_DIR / f"{name}_rollout.pt", weights_only=True)
     )
@@ -143,12 +125,14 @@ def plot(all_results: dict[str, dict]):
                 mean, half = mean_ci(r[key])
                 if not np.isfinite(mean).all():
                     continue
-                ax.plot(k, mean, color=COLORS[variant], linewidth=2, label=variant)
+                ax.plot(
+                    k, mean, color=VARIANT_COLORS[variant], linewidth=2, label=variant
+                )
                 ax.fill_between(
                     k,
                     np.maximum(mean - half, 1e-6) if row == 0 else mean - half,
                     mean + half,
-                    color=COLORS[variant],
+                    color=VARIANT_COLORS[variant],
                     alpha=0.15,
                 )
             if row == 0:

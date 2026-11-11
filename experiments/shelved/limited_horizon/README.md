@@ -9,7 +9,7 @@ Reasons for shelving, found in a design review after the code was written:
 
 The code (horizon limit, median selection, sharpness, gradient logging) is kept for later experiments.
 
-Code: `run_limited_horizon.py` (training stages, settings, selection) and `evaluate_limited_horizon.py` in this directory, on top of `src/anchor_loss.py` (`max_horizon`, median validation errors), `src/train_variants.py` (`max_horizon`, `select_metric`, output directories, gradient logging) and `src/evaluate_variants.py` (`sharpness`). The defaults of the changed functions reproduce e01. Outputs go to `models/shelved_limited_horizon/` and `results/shelved_limited_horizon/`.
+Code: `run_limited_horizon.py` (training stages, settings, selection) and `evaluate_limited_horizon.py` in this directory, on top of the `anchor` package: `losses.py` (`max_horizon`), `metrics.py` (median validation errors, `sharpness`) and `training.py` (`max_horizon`, `select_metric`, output directories, gradient logging). The defaults of the changed functions reproduce e01. Outputs go to `models/` and `results/` in this directory.
 
 Run from the repository root, one terminal per family:
 

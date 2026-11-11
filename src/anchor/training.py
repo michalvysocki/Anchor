@@ -1,38 +1,31 @@
-import argparse
 import json
 from pathlib import Path
 
 import numpy as np
 import torch
 
-from anchor_loss import (
-    UnitStep,
+from anchor.config import (
+    BURN_IN,
+    K_MAX,
+    TRAIN_DATA_SEED,
+    VAL_DATA_SEED,
+    ObservabilityMode,
+)
+from anchor.envs.henon import generate_windows, observation_dim
+from anchor.losses import (
     anchor_loss_bootstrapped,
     anchor_loss_composed,
     anchor_loss_rollout,
     anchor_loss_unit_rollout,
-    direct_median_error,
     grounding_loss,
     multistep_loss,
     one_step_loss,
     rollout_error,
-    rollout_median_error,
 )
-from config import (
-    BURN_IN,
-    DP_HIDDEN_SIZE,
-    K_MAX,
-    MODELS_DIR,
-    RESULTS_DIR,
-    TRAIN_DATA_SEED,
-    TRAINING_SEEDS,
-    VAL_DATA_SEED,
-    ObservabilityMode,
-)
-from direct_predictor import DirectPredictor
-from toystateworld import generate_windows, observation_dim
+from anchor.metrics import direct_median_error, rollout_median_error
+from anchor.models import HorizonMLP, UnitStep
 
-LAMBDAS = (0.1, 0.3, 1.0, 3.0)
+HIDDEN_SIZE = 256
 N_TRAJ = 1000
 LEN_TRAJ = 36
 LEARNING_RATE = 1e-3
@@ -56,9 +49,6 @@ VARIANTS = {
 }
 
 PATHS = ("direct", "rollout")
-
-VARIANT_MODELS_DIR = MODELS_DIR / "variants"
-VARIANT_RESULTS_DIR = RESULTS_DIR / "variants"
 
 
 def run_name(
@@ -85,11 +75,11 @@ def train_variant(
     lam: float,
     seed: int,
     device: str,
+    models_dir: Path,
+    results_dir: Path,
     n_steps: int = N_STEPS,
     max_horizon: int | None = None,
     select_metric: str = "mse",
-    models_dir: Path = VARIANT_MODELS_DIR,
-    results_dir: Path = VARIANT_RESULTS_DIR,
     log_grads: bool = False,
 ) -> float:
     """
@@ -110,13 +100,13 @@ def train_variant(
         lam (float): weight of the auxiliary loss
         seed (int): seed for weight initialization and decompositions
         device (str): device used for training
+        models_dir (Path): directory for checkpoints
+        results_dir (Path): directory for the run summary
         n_steps (int): number of optimization steps
         max_horizon (int | None): largest horizon of the auxiliary loss,
             K_MAX if None. Supported by variants C, D and E.
         select_metric (str): "mse" (e01) or "median", the validation
             statistic used to select checkpoints
-        models_dir (Path): directory for checkpoints
-        results_dir (Path): directory for the run summary
         log_grads (bool): print the gradient norms of the base and the
             weighted auxiliary term every 100 steps
 
@@ -140,7 +130,7 @@ def train_variant(
         np.random.default_rng(VAL_DATA_SEED),
     ).to(device)
 
-    model = DirectPredictor(K_MAX, observation_dim(mode), DP_HIDDEN_SIZE).to(device)
+    model = HorizonMLP(K_MAX, observation_dim(mode), HIDDEN_SIZE).to(device)
     unit = UnitStep(model, K_MAX)
     if family == "direct":
         base_loss, aux_model = grounding_loss, model
@@ -220,52 +210,3 @@ def train_variant(
         json.dump(summary, f)
 
     return best[select]["val"]
-
-
-def best_lambda(variant: str, mode: ObservabilityMode, seed: int) -> float:
-    """Lambda with the lowest validation loss in the sweep of one seed."""
-    losses = {}
-    for lam in LAMBDAS:
-        with open(
-            VARIANT_RESULTS_DIR / f"{run_name(variant, mode, lam, seed)}.json"
-        ) as f:
-            losses[lam] = json.load(f)[f"val_{VARIANTS[variant][2]}"]
-
-    return min(losses, key=losses.get)
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Train Anchor variants.")
-    parser.add_argument("stage", choices=["sweep", "final", "baseline"])
-    parser.add_argument("--family", choices=["direct", "onestep"], required=True)
-    parser.add_argument("--device", default="cpu")
-    args = parser.parse_args()
-
-    modes = ("insufficient", "sufficient")
-    variants = [
-        v for v, (family, aux, _) in VARIANTS.items() if family == args.family and aux
-    ]
-    sweep_seed = TRAINING_SEEDS[0]
-
-    if args.stage == "sweep":
-        for mode in modes:
-            for variant in variants:
-                for lam in LAMBDAS:
-                    train_variant(variant, mode, lam, sweep_seed, args.device)
-
-    elif args.stage == "final":
-        for mode in modes:
-            for variant in variants:
-                lam = best_lambda(variant, mode, sweep_seed)
-                print(f"{variant} {mode}: selected lambda {lam}")
-                for seed in TRAINING_SEEDS[1:]:
-                    train_variant(variant, mode, lam, seed, args.device)
-
-    elif args.stage == "baseline":
-        for mode in modes:
-            for seed in TRAINING_SEEDS:
-                train_variant(args.family, mode, 0.0, seed, args.device)
-
-
-if __name__ == "__main__":
-    main()

@@ -1,26 +1,7 @@
 import torch
 from torch import nn
 
-from toystateworld import horizon_input
-
-
-def predict(
-    model: nn.Module, z: torch.Tensor, k: torch.Tensor, k_max: int
-) -> torch.Tensor:
-    """
-    Predicts the state k steps ahead with a horizon-conditioned model.
-
-    Args:
-        model (nn.Module): model taking points with one-hot horizons
-        z (torch.Tensor): points of size (batch, point_dim)
-        k (torch.Tensor): horizons from 1 to k_max of size (batch,)
-        k_max (int): maximum step
-
-    Returns:
-        torch.Tensor: predicted points of size (batch, point_dim)
-    """
-
-    return model(horizon_input(z, k, k_max))
+from anchor.models import UnitStep, predict
 
 
 def grounding_loss(model: nn.Module, windows: torch.Tensor) -> torch.Tensor:
@@ -207,47 +188,6 @@ def rollout_error(model: nn.Module, windows: torch.Tensor) -> torch.Tensor:
     return nn.functional.mse_loss(torch.stack(states, dim=1), windows[:, 1:])
 
 
-def median_error(preds: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    """
-    Median over windows of the Euclidean error at each horizon, averaged
-    over horizons. Non-finite predictions count as infinite errors.
-
-    Args:
-        preds (torch.Tensor): predictions of size (n, k_max, point_dim)
-        targets (torch.Tensor): true points of size (n, k_max, point_dim)
-
-    Returns:
-        torch.Tensor: scalar error
-    """
-
-    errors = torch.linalg.vector_norm(preds - targets, dim=-1)
-    errors = torch.nan_to_num(errors, nan=float("inf"))
-
-    return errors.median(dim=0).values.mean()
-
-
-def direct_median_error(model: nn.Module, windows: torch.Tensor) -> torch.Tensor:
-    """Median-based error of direct predictions F(z, k), used to select checkpoints."""
-    n, length, point_dim = windows.shape
-    k_max = length - 1
-    k = torch.arange(1, k_max + 1, device=windows.device).repeat(n)
-    starts = windows[:, 0].repeat_interleave(k_max, dim=0)
-    preds = predict(model, starts, k, k_max).reshape(n, k_max, point_dim)
-
-    return median_error(preds, windows[:, 1:])
-
-
-def rollout_median_error(model: nn.Module, windows: torch.Tensor) -> torch.Tensor:
-    """Median-based error of free-running rollouts, used to select checkpoints."""
-    z = windows[:, 0]
-    states = []
-    for _ in range(windows.shape[1] - 1):
-        z = model(z)
-        states.append(z)
-
-    return median_error(torch.stack(states, dim=1), windows[:, 1:])
-
-
 def multistep_loss(
     model: nn.Module,
     windows: torch.Tensor,
@@ -313,22 +253,6 @@ def anchor_loss_rollout(
     long_path = rollout_to(model, windows[:, 0], k)
 
     return nn.functional.mse_loss(long_path, anchor)
-
-
-class UnitStep(nn.Module):
-    """
-    Uses a horizon-conditioned model F(z, k) as a one-step model F(z, 1),
-    so every variant trains and rolls out the same network.
-    """
-
-    def __init__(self, model: nn.Module, k_max: int):
-        super().__init__()
-        self.model = model
-        self.k_max = k_max
-
-    def forward(self, z: torch.Tensor) -> torch.Tensor:
-        k = torch.ones(len(z), dtype=torch.int64, device=z.device)
-        return predict(self.model, z, k, self.k_max)
 
 
 def anchor_loss_unit_rollout(

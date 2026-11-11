@@ -5,24 +5,21 @@ import pytest
 import torch
 from torch import nn
 
-from anchor_loss import (
-    UnitStep,
+from anchor.config import BURN_IN, K_MAX, TRAIN_DATA_SEED
+from anchor.envs.henon import generate_windows
+from anchor.losses import (
     anchor_loss_bootstrapped,
     anchor_loss_composed,
     anchor_loss_rollout,
     anchor_loss_unit_rollout,
     grounding_loss,
-    median_error,
     multistep_loss,
-    predict,
     rollout_error,
     rollout_to,
     sample_decomposition,
 )
-from config import BURN_IN, K_MAX, TRAIN_DATA_SEED
-from direct_predictor import DirectPredictor
-from model import Predictor
-from toystateworld import generate_horizon_dataset, generate_windows
+from anchor.metrics import median_error
+from anchor.models import HorizonMLP, UnitStep, predict
 
 
 @pytest.mark.parametrize("p_one", [False, True])
@@ -40,19 +37,23 @@ def test_decomposition_is_valid(p_one):
 
 
 @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-def test_grounding_loss_matches_direct_objective():
+def test_grounding_loss_averages_every_horizon():
     torch.manual_seed(0)
-    model = DirectPredictor(K_MAX, 1, 16)
-    X, y = generate_horizon_dataset(
-        20, 36, BURN_IN, K_MAX, "insufficient", np.random.default_rng(TRAIN_DATA_SEED)
-    )
+    model = HorizonMLP(K_MAX, 1, 16)
     windows = generate_windows(
         20, 36, BURN_IN, K_MAX, "insufficient", np.random.default_rng(TRAIN_DATA_SEED)
     )
+    n = len(windows)
+    per_horizon = [
+        nn.functional.mse_loss(
+            predict(model, windows[:, 0], torch.full((n,), k), K_MAX), windows[:, k]
+        )
+        for k in range(1, K_MAX + 1)
+    ]
 
-    expected = nn.functional.mse_loss(model(X), y)
-
-    assert torch.allclose(grounding_loss(model, windows), expected)
+    assert torch.allclose(
+        grounding_loss(model, windows), torch.stack(per_horizon).mean()
+    )
 
 
 class IgnoresHorizon(nn.Module):
@@ -77,7 +78,7 @@ def test_stop_gradient_blocks_target_path():
         grads = {}
         for symmetric in (False, True):
             torch.manual_seed(1)
-            model = DirectPredictor(K_MAX, 1, 16)
+            model = HorizonMLP(K_MAX, 1, 16)
             loss = loss_fn(
                 model, windows, torch.Generator().manual_seed(0), symmetric=symmetric
             )
@@ -126,9 +127,12 @@ def test_rollout_stop_gradient_blocks_target_path():
     grads = {}
     for symmetric in (False, True):
         torch.manual_seed(1)
-        model = Predictor(1, 16)
+        model = HorizonMLP(K_MAX, 1, 16)
         loss = anchor_loss_rollout(
-            model, windows, torch.Generator().manual_seed(0), symmetric=symmetric
+            UnitStep(model, K_MAX),
+            windows,
+            torch.Generator().manual_seed(0),
+            symmetric=symmetric,
         )
         loss.backward()
         grads[symmetric] = model.output_layer.weight.grad.clone()
@@ -138,7 +142,7 @@ def test_rollout_stop_gradient_blocks_target_path():
 
 def test_unit_step_is_the_horizon_one_prediction():
     torch.manual_seed(0)
-    model = DirectPredictor(K_MAX, 2, 16)
+    model = HorizonMLP(K_MAX, 2, 16)
     z = torch.randn(8, 2)
     expected = model(
         torch.cat(
@@ -166,7 +170,7 @@ def test_unit_rollout_loss_is_zero_for_consistent_model():
 def test_default_horizon_is_k_max(loss_fn):
     torch.manual_seed(0)
     windows = torch.randn(64, K_MAX + 1, 1)
-    model = DirectPredictor(K_MAX, 1, 16)
+    model = HorizonMLP(K_MAX, 1, 16)
     aux_model = model if loss_fn is anchor_loss_unit_rollout else UnitStep(model, K_MAX)
 
     default = loss_fn(aux_model, windows, torch.Generator().manual_seed(0))
@@ -180,7 +184,7 @@ def test_default_horizon_is_k_max(loss_fn):
 def test_max_horizon_two_gives_two_step_losses():
     torch.manual_seed(0)
     windows = torch.randn(64, K_MAX + 1, 1)
-    model = DirectPredictor(K_MAX, 1, 16)
+    model = HorizonMLP(K_MAX, 1, 16)
     unit = UnitStep(model, K_MAX)
     g = torch.Generator().manual_seed(0)
     two = torch.full((64,), 2, dtype=torch.int64)

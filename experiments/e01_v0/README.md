@@ -4,6 +4,18 @@ Status: done 2026-11-11 (started 2026-11-10). Decision criteria below were writt
 
 Code: `src/train_variants.py`, `src/anchor_loss.py`, `src/evaluate_variants.py`, at the commit that sets `N_STEPS = 40000` (on top of `01d753d`).
 
+Since the repository restructuring (after `adfffcd`), the same code lives in the `anchor` package (`src/anchor/`) and in `train.py`, `evaluate.py` and `bayes_floor.py` in this directory, with results in `results/` and checkpoints in `models/` here. The restructured code reproduces e01 exactly: three reference training runs (A, D, E, 1 000 steps) give bit-identical weights, and re-running `evaluate.py` and `bayes_floor.py` gives bit-identical `test_results.json` and `bayes_floor_insufficient.json`.
+
+```
+uv run python experiments/e01_v0/train.py baseline --family onestep
+uv run python experiments/e01_v0/train.py sweep --family onestep
+uv run python experiments/e01_v0/train.py final --family onestep
+uv run python experiments/e01_v0/train.py baseline --family direct --device mps
+uv run python experiments/e01_v0/train.py sweep --family direct --device mps
+uv run python experiments/e01_v0/train.py final --family direct --device mps
+uv run python experiments/e01_v0/evaluate.py
+```
+
 ## Questions
 
 **Q1 (motivation).** With equal model capacity and training, does direct prediction F(z, k) beat the unit-step rollout F(·, 1)^k?
@@ -75,7 +87,7 @@ A first version of Q1 (2026-11-10, `compare.py`, `aggregate_seeds.py`) found tha
 
 ## Result
 
-Evaluated 2026-11-11 (`src/evaluate_variants.py`, output in `logs/evaluate_variants.log`, `results/variants/test_results.json`, `results/variants/variants_comparison.png`). All 100 runs finished with 40 000 steps; no rollout diverged.
+Evaluated 2026-11-11 (`src/evaluate_variants.py`, now `evaluate.py`; output in `results/test_results.json`, `results/variants_comparison.png`, printed summary in the local `logs/evaluate_variants.log`). All 100 runs finished with 40 000 steps; no rollout diverged.
 
 Selected λ (seed 0, validation): A 0.1 / 0.1, B 0.1 / 0.1, E 3.0 / 3.0, C 3.0 / 0.1, D 3.0 / 3.0 (insufficient / sufficient). Five of ten choices sit at the upper edge of the grid.
 
@@ -158,7 +170,7 @@ Consequences:
 
 ## Post-hoc analysis: prediction floor in `insufficient` (2026-11-11)
 
-Not pre-registered. `bayes_floor.py` estimates the best prediction of x_{t+k} from x_t alone by nearest-neighbour regression (200 neighbours) on 1 156 932 windows from a separate generator (seed 3), evaluated on the e01 test windows. Results in `results/variants/bayes_floor_insufficient.json`; 50 neighbours give the same values within ~0.01.
+Not pre-registered. `bayes_floor.py` estimates the best prediction of x_{t+k} from x_t alone by nearest-neighbour regression (200 neighbours) on 1 156 932 windows from a separate generator (seed 3), evaluated on the e01 test windows. Results in `results/bayes_floor_insufficient.json`; 50 neighbours give the same values within ~0.01.
 
 | k | MSE, conditional mean (kNN) | MSE, direct (e01) | median abs. error, conditional mean (kNN) | median abs. error, conditional median (kNN) | median abs. error, direct (e01) |
 |---|---|---|---|---|---|

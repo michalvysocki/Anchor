@@ -1,8 +1,5 @@
 import numpy as np
 import torch
-from torch import nn
-from torch.optim import Adam
-
 from config import (
     BURN_IN,
     DEVICE,
@@ -15,6 +12,8 @@ from config import (
     model_path,
 )
 from model import Predictor
+from torch import nn
+from torch.optim import Adam
 from toystateworld import generate_dataset, observation_dim
 
 

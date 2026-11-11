@@ -2,16 +2,14 @@
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+from anchor.config import TRAINING_SEEDS
+from anchor.training import N_STEPS, run_name, train_variant
 
-from config import MODELS_DIR, RESULTS_DIR, TRAINING_SEEDS
-from train_variants import N_STEPS, run_name, train_variant
-
-LH_MODELS_DIR = MODELS_DIR / "shelved_limited_horizon"
-LH_RESULTS_DIR = RESULTS_DIR / "shelved_limited_horizon"
+EXPERIMENT_DIR = Path(__file__).resolve().parent
+LH_MODELS_DIR = EXPERIMENT_DIR / "models"
+LH_RESULTS_DIR = EXPERIMENT_DIR / "results"
 CHECK_DIR = "gradcheck"
 HORIZONS = (4, 8)
 LAMBDAS = (0.001, 0.01, 0.1, 1.0)
@@ -42,11 +40,11 @@ def train(
         lam,
         seed,
         device,
+        models_dir,
+        results_dir,
         n_steps=CHECK_STEPS if check else N_STEPS,
         max_horizon=max_horizon,
         select_metric=SELECT_METRIC,
-        models_dir=models_dir,
-        results_dir=results_dir,
         log_grads=check,
     )
 

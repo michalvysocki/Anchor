@@ -1,5 +1,4 @@
 import numpy as np
-
 from train_direct import training_direct
 
 if __name__ == "__main__":

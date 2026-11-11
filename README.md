@@ -2,44 +2,38 @@
 
 Grounded predictive path consistency for latent world models. The same future state can be reached by different predictive paths: one direct prediction over the whole horizon, or a composition of shorter predictions. Anchor trains these paths to agree while keeping predictions grounded in observed future states. The goal is to reduce model-induced compounding error in long rollouts.
 
-This is ongoing research. The Anchor objective itself is not implemented yet.
+This is ongoing research.
 
 ## Status
 
-Stage 0: controlled experiments on the Hénon map (deterministic, chaotic) with two observation modes:
+- **e01** (`experiments/e01_v0`, done): Hénon map with full (`sufficient`) and partial (`insufficient`) observation, raw observations, Anchor variants A–E against one-step and direct baselines. Direct prediction beats one-step rollout under partial observation. No Anchor variant improved the rollout without harming the well-specified case; the auxiliary horizons reached beyond the predictable range and dominated the gradients (see the README's addendum).
+- **Shelved** (`experiments/shelved/limited_horizon`): the same comparison with horizon-limited auxiliary losses, not run, because raw one-dimensional observations leave no latent for Anchor to shape.
+- **Next** (e02): a partially observed linear-Gaussian system with a latent model, comparing bootstrapped (Anchor) and Monte Carlo (TD-MPC-style) multi-step targets under observation noise.
 
-- `sufficient`: delay embedding (x_{t-1}, x_t), which is the full state,
-- `insufficient`: only x_t, so the one-step model is Markov-misspecified.
-
-Current result (5 training seeds, held-out test set, `results/direct_vs_rollout.png`):
-
-- `insufficient`: a direct multi-horizon predictor beats one-step rollout at every horizon k = 1..20.
-- `sufficient`: rollout is better up to k ≈ 14. Beyond that both errors saturate; direct converges to the error of predicting the attractor mean and rollout to the error of a random attractor point.
-
-Next: the Anchor loss (composition with a stop-gradient direct target, and a bootstrapped variant anchored at later observed states), compared against multi-horizon and direct baselines.
+Every experiment has a README written before it runs, with its hypotheses and decision criteria, followed by the result and conclusion.
 
 ## Project structure
 
 ```
 Anchor/
-├── src/
-│   ├── config.py            # constants, seeds, model paths
-│   ├── toystateworld.py     # Hénon map, observation modes, dataset generation
-│   ├── model.py             # one-step predictor
-│   ├── direct_predictor.py  # direct predictor conditioned on one-hot horizon k
-│   ├── train.py             # trains the one-step predictor for every mode and seed
-│   ├── train_direct.py      # trains the direct predictor for every mode and seed
-│   ├── evaluate.py          # rollout drift and diverged-rollout rate
-│   ├── evaluate_direct.py   # direct prediction error per horizon
-│   ├── compare.py           # paired test errors and their correlations, per seed
-│   ├── aggregate_seeds.py   # mean and 95% CI over seeds, comparison plot
-│   └── experiments/         # hyperparameter searches
-├── tests/                   # invariants of data generation and evaluation
-├── models/                  # checkpoints (gitignored)
-├── results/                 # paired errors and plots
+├── src/anchor/              # library, installed as the `anchor` package
+│   ├── config.py            # data seeds, training seeds, K_MAX, burn-in
+│   ├── envs/henon.py        # Hénon map, observation modes, trajectory windows
+│   ├── models.py            # horizon-conditioned MLP F(z, k), unit-step wrapper
+│   ├── losses.py            # grounding, one-step, multi-step and Anchor losses
+│   ├── metrics.py           # path errors, median errors, sharpness, off-attractor, CIs
+│   ├── training.py          # variant catalogue and the shared training loop
+│   └── plotting.py          # fixed variant colors
+├── experiments/
+│   ├── e01_v0/              # README, train.py, evaluate.py, bayes_floor.py, results/, models/
+│   ├── shelved/             # experiments designed but not run
+│   └── archive/pre_v0/      # frozen pipeline from before e01
+├── tests/                   # losses, metrics and data invariants
 ├── pyproject.toml
 └── uv.lock
 ```
+
+Checkpoints (`*.pt`) are not in git; they are reproducible from the seeds.
 
 ## Setup
 
@@ -49,22 +43,16 @@ uv sync
 
 ## Usage
 
-Scripts import each other as top-level modules, so run them from `src/`:
+Experiment scripts can be run from any directory:
 
 ```bash
-cd src
-uv run python train.py
-uv run python train_direct.py
-uv run python compare.py
-uv run python aggregate_seeds.py
-```
-
-`train_direct.py` uses Apple MPS when available. Run the tests from the repository root:
-
-```bash
+uv run python experiments/e01_v0/train.py baseline --family onestep
+uv run python experiments/e01_v0/evaluate.py
 uv run pytest
 ```
 
+Each experiment's README lists the full sequence of commands.
+
 ## Reproducibility
 
-Training, validation and test data come from separate generators (`TRAIN_DATA_SEED`, `VAL_DATA_SEED`, `TEST_DATA_SEED` in `config.py`). `TRAINING_SEEDS` set only the weight initialization, so all seeds see the same data. Each run saves the checkpoint with the lowest validation loss.
+Training, validation and test data come from separate generators (`TRAIN_DATA_SEED`, `VAL_DATA_SEED`, `TEST_DATA_SEED` in `src/anchor/config.py`). `TRAINING_SEEDS` set weight initialization and sampling, so all seeds see the same data. Evaluation on CPU is deterministic: re-running it reproduces the saved results bit for bit.

@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from torch import nn
 
-from config import K_MAX
-from evaluate_variants import off_attractor, path_errors, sharpness
+from anchor.config import K_MAX
+from anchor.metrics import off_attractor, path_errors, sharpness
 
 
 class IgnoresHorizon(nn.Module):

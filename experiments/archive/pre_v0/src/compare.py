@@ -3,7 +3,6 @@ from math import dist
 
 import numpy as np
 import torch
-
 from config import (
     BURN_IN,
     DP_HIDDEN_SIZE,

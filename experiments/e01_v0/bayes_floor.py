@@ -9,19 +9,16 @@ per horizon).
 """
 
 import json
-import sys
-from pathlib import Path
 
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-
 import torch
+from evaluate import load_model
+from train import RESULTS_DIR
 
-from config import BURN_IN, K_MAX, TEST_DATA_SEED, TRAINING_SEEDS
-from evaluate_variants import load_model, mean_ci, path_errors
-from toystateworld import generate_windows
-from train_variants import LEN_TRAJ, N_TRAJ, VARIANT_RESULTS_DIR
+from anchor.config import BURN_IN, K_MAX, TEST_DATA_SEED, TRAINING_SEEDS
+from anchor.envs.henon import generate_windows
+from anchor.metrics import mean_ci, path_errors
+from anchor.training import LEN_TRAJ, N_TRAJ
 
 # not used by train (0), test (1) or validation (2)
 REFERENCE_DATA_SEED = 3
@@ -97,7 +94,7 @@ if __name__ == "__main__":
         N_TRAJ, LEN_TRAJ, BURN_IN, K_MAX, mode, np.random.default_rng(TEST_DATA_SEED)
     )[..., 0].numpy()
 
-    with open(VARIANT_RESULTS_DIR / "test_results.json") as f:
+    with open(RESULTS_DIR / "test_results.json") as f:
         e01 = json.load(f)
     direct, _ = mean_ci(np.array(e01[mode]["direct"]["direct"]["median"]))
     rollout, _ = mean_ci(np.array(e01[mode]["rollout"]["onestep"]["median"]))
@@ -136,7 +133,7 @@ if __name__ == "__main__":
         )
     )
 
-    with open(VARIANT_RESULTS_DIR / "bayes_floor_insufficient.json", "w") as f:
+    with open(RESULTS_DIR / "bayes_floor_insufficient.json", "w") as f:
         json.dump(
             {
                 str(n): {key: v.tolist() for key, v in floors[n].items()}

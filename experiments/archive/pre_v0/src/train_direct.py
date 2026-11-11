@@ -1,8 +1,5 @@
 import numpy as np
 import torch
-from torch import nn
-from torch.optim import Adam
-
 from config import (
     BURN_IN,
     DEVICE,
@@ -16,6 +13,8 @@ from config import (
     direct_model_path,
 )
 from direct_predictor import DirectPredictor
+from torch import nn
+from torch.optim import Adam
 from toystateworld import generate_horizon_dataset, observation_dim
 
 

@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
 from config import K_MAX, RESULTS_DIR, TRAINING_SEEDS
 
 # two-sided 95% Student t quantile for 4 degrees of freedom (5 seeds)
