@@ -12,7 +12,9 @@ from anchor_loss import (
     anchor_loss_rollout,
     anchor_loss_unit_rollout,
     grounding_loss,
+    median_error,
     multistep_loss,
+    predict,
     rollout_error,
     rollout_to,
     sample_decomposition,
@@ -156,3 +158,54 @@ def test_unit_rollout_loss_is_zero_for_consistent_model():
     g = torch.Generator().manual_seed(0)
 
     assert anchor_loss_unit_rollout(IgnoresHorizon(), windows, g) == 0
+
+
+@pytest.mark.parametrize(
+    "loss_fn", [multistep_loss, anchor_loss_rollout, anchor_loss_unit_rollout]
+)
+def test_default_horizon_is_k_max(loss_fn):
+    torch.manual_seed(0)
+    windows = torch.randn(64, K_MAX + 1, 1)
+    model = DirectPredictor(K_MAX, 1, 16)
+    aux_model = model if loss_fn is anchor_loss_unit_rollout else UnitStep(model, K_MAX)
+
+    default = loss_fn(aux_model, windows, torch.Generator().manual_seed(0))
+    explicit = loss_fn(
+        aux_model, windows, torch.Generator().manual_seed(0), max_horizon=K_MAX
+    )
+
+    assert torch.equal(default, explicit)
+
+
+def test_max_horizon_two_gives_two_step_losses():
+    torch.manual_seed(0)
+    windows = torch.randn(64, K_MAX + 1, 1)
+    model = DirectPredictor(K_MAX, 1, 16)
+    unit = UnitStep(model, K_MAX)
+    g = torch.Generator().manual_seed(0)
+    two = torch.full((64,), 2, dtype=torch.int64)
+    rolled = unit(unit(windows[:, 0]))
+    mse = nn.functional.mse_loss
+
+    assert torch.allclose(
+        multistep_loss(unit, windows, g, max_horizon=2), mse(rolled, windows[:, 2])
+    )
+    assert torch.allclose(
+        anchor_loss_rollout(unit, windows, g, max_horizon=2),
+        mse(rolled, unit(windows[:, 1])),
+    )
+    assert torch.allclose(
+        anchor_loss_unit_rollout(model, windows, g, max_horizon=2),
+        mse(rolled, predict(model, windows[:, 0], two, K_MAX)),
+    )
+
+
+def test_median_error_counts_nan_as_infinite():
+    targets = torch.zeros(3, 2, 1)
+    preds = torch.tensor(
+        [[[1.0], [1.0]], [[2.0], [float("nan")]], [[3.0], [float("nan")]]]
+    )
+
+    # horizon 1: median of 1, 2, 3; horizon 2: median of 1, inf, inf
+    assert median_error(preds, targets) == float("inf")
+    assert median_error(preds[:, :1], targets[:, :1]) == 2.0

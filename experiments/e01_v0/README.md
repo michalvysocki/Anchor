@@ -131,3 +131,57 @@ The result does not distinguish two causes of the harm:
 - (b) the optimization: for C and D the exact map has zero loss, so the harm can come from gradients through up to 19 chaotic steps rather than from the objective.
 
 Next experiments, each with its own README written before it runs: a test separating (a) from (b), and the linear-Gaussian system.
+
+## Addendum (2026-11-11, after the conclusion)
+
+A check made after the conclusion found a design error. It does not change the scenario above, but it changes what the experiment tested.
+
+Loss and gradient norm on a batch of 512 training windows, measured on the trained onestep model (seed 0, rollout checkpoint):
+
+| mode | loss | value | gradient norm |
+|---|---|---|---|
+| sufficient | one-step | 1.8·10⁻⁷ | 5.0·10⁻⁴ |
+| sufficient | C | 0.21 | 1.8·10³ |
+| sufficient | D | 0.16 | 1.4·10³ |
+| insufficient | one-step | 0.040 | 0.38 |
+| insufficient | C | 0.71 | 1.2·10³ |
+| insufficient | D | 0.51 | 5.9·10² |
+
+Rollout MSE of the same `sufficient` model by horizon: 1.7·10⁻⁷ at k = 1, 6.9·10⁻⁴ at k = 8, 0.19 at k = 15, 0.80 at k = 20.
+
+Consequences:
+
+- The auxiliary gradient is ~10³ (`insufficient`) to ~10⁶ (`sufficient`) times larger than the one-step gradient. With clipping at norm 1.0, C, D and E were trained almost only by the auxiliary term, for every λ in the grid. The λ grid did not cover the range where the two terms are balanced.
+- The argument in (b), that the exact map has zero loss for C and D, holds only for the exact map. A model with one-step error 1.8·10⁻⁷ is already saturated at k = 20. At this precision the horizon of predictability is about 10–13 steps, and the auxiliary losses used horizons up to 20. Beyond that horizon the MSE minimum is the mean, so (a) and (b) are one effect here and cannot be separated by starting from the trained model.
+- e01 therefore tested Anchor with horizons beyond the predictability horizon and unbalanced gradients, not path consistency as such.
+- The planned test separating (a) from (b) is dropped, because its outcome follows from the table above. The next experiment limits the Anchor horizon to the predictable range and balances the gradients, with gradient norms measured before training.
+
+## Post-hoc analysis: prediction floor in `insufficient` (2026-11-11)
+
+Not pre-registered. `bayes_floor.py` estimates the best prediction of x_{t+k} from x_t alone by nearest-neighbour regression (200 neighbours) on 1 156 932 windows from a separate generator (seed 3), evaluated on the e01 test windows. Results in `results/variants/bayes_floor_insufficient.json`; 50 neighbours give the same values within ~0.01.
+
+| k | MSE, conditional mean (kNN) | MSE, direct (e01) | median abs. error, conditional mean (kNN) | median abs. error, conditional median (kNN) | median abs. error, direct (e01) |
+|---|---|---|---|---|---|
+| 1 | 0.036 | 0.040 | 0.129 | 0.027 | 0.140 |
+| 3 | 0.145 | 0.149 | 0.213 | 0.045 | 0.208 |
+| 5 | 0.220 | 0.232 | 0.250 | 0.090 | 0.268 |
+| 8 | 0.281 | 0.390 | 0.320 | 0.158 | 0.448 |
+| 10 | 0.351 | 0.461 | 0.377 | 0.236 | 0.510 |
+| 20 | 0.472 | 0.532 | 0.534 | 0.472 | 0.597 |
+| mean over k | — | — | 0.370 | 0.241 | 0.442 |
+
+Findings:
+
+- Up to k ≈ 6 the direct baseline is within ~5–7% of the MSE floor, so on short horizons it is close to the best possible prediction from x_t. From k ≈ 7 it is 30–40% above the floor. The training set has only ~5.7k windows, and the conditional mean at long horizons is a finely structured function of x_t, so this gap is plausibly data-limited; it was not tested.
+- The primary e01 metric does not match the training objective in `insufficient`. Given x_t alone the future is multimodal (x_t does not determine y_t), so the conditional median has a much lower median absolute error than the conditional mean (k = 1: 0.027 vs 0.129). Models trained with MSE predict the conditional mean, and the median metric penalizes this. Comparisons between MSE-trained models in e01 remain valid, but absolute errors in `insufficient` are not distances to the best achievable prediction under that metric.
+- Lesson for later experiments: the point metric must match the training loss, or the conditional distribution must be unimodal (in a linear-Gaussian system mean and median coincide).
+
+## Open questions left by e01
+
+| question | status |
+|---|---|
+| Do C and D with horizons inside the predictable range and balanced gradients harm the well-specified case? | not tested (shelved experiment, `experiments/shelved/limited_horizon`); to be tested on the linear-Gaussian system |
+| Would λ below 0.1 change the result? | not tested; the gradient measurement suggests the balanced range is far below the grid |
+| Why does A's rollout improve in `insufficient` (−0.055 ± 0.022)? | not explained |
+| Is the gap of the direct baseline to the floor at k ≥ 7 caused by the amount of data? | not tested |
+| Hénon with observation noise and a latent model | not tested; only if a paper section on chaos needs it |

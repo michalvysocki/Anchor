@@ -163,6 +163,32 @@ def off_attractor(preds: np.ndarray, reference: np.ndarray) -> np.ndarray:
     return dist.reshape(preds.shape[:2])
 
 
+def sharpness(preds: np.ndarray, windows: torch.Tensor) -> np.ndarray:
+    """
+    Spread of predictions relative to the spread of true points at each
+    horizon: std over windows, averaged over coordinates. A prediction of
+    the mean gives values near 0, unlike off_attractor this also works for
+    one-dimensional observations. Diverged windows are left out.
+
+    Args:
+        preds (np.ndarray): predictions of size (n, k_max, point_dim)
+        windows (torch.Tensor): test windows of size (n, k_max + 1, point_dim)
+
+    Returns:
+        np.ndarray: ratios of size (k_max,)
+    """
+
+    targets = windows[:, 1:].numpy()
+    ratios = []
+    for k in range(preds.shape[1]):
+        ok = np.isfinite(preds[:, k]).all(axis=1) & (
+            np.abs(preds[:, k]) <= DIVERGENCE_THRESHOLD
+        ).all(axis=1)
+        ratios.append((preds[ok, k].std(axis=0) / targets[ok, k].std(axis=0)).mean())
+
+    return np.array(ratios)
+
+
 def mean_ci(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Mean over seeds (first axis) and half-width of the 95% t-interval."""
     half = T_95_DF4 * values.std(axis=0, ddof=1) / np.sqrt(values.shape[0])

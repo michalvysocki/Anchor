@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 from config import K_MAX
-from evaluate_variants import off_attractor, path_errors
+from evaluate_variants import off_attractor, path_errors, sharpness
 
 
 class IgnoresHorizon(nn.Module):
@@ -44,3 +44,11 @@ def test_points_on_reference_are_on_attractor():
     preds = reference[:20].reshape(4, 5, 2)
 
     assert np.allclose(off_attractor(preds, reference), 0, atol=1e-5)
+
+
+def test_sharpness_is_one_for_truth_and_zero_for_constant():
+    windows = torch.randn(200, K_MAX + 1, 2)
+    truth = windows[:, 1:].numpy()
+
+    assert np.allclose(sharpness(truth, windows), 1.0)
+    assert np.allclose(sharpness(np.zeros_like(truth), windows), 0.0)

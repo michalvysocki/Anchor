@@ -1,5 +1,6 @@
 import argparse
 import json
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -10,10 +11,12 @@ from anchor_loss import (
     anchor_loss_composed,
     anchor_loss_rollout,
     anchor_loss_unit_rollout,
+    direct_median_error,
     grounding_loss,
     multistep_loss,
     one_step_loss,
     rollout_error,
+    rollout_median_error,
 )
 from config import (
     BURN_IN,
@@ -58,8 +61,22 @@ VARIANT_MODELS_DIR = MODELS_DIR / "variants"
 VARIANT_RESULTS_DIR = RESULTS_DIR / "variants"
 
 
-def run_name(variant: str, mode: ObservabilityMode, lam: float, seed: int) -> str:
-    return f"{variant}_{mode}_lam{lam}_seed{seed}"
+def run_name(
+    variant: str,
+    mode: ObservabilityMode,
+    lam: float,
+    seed: int,
+    max_horizon: int | None = None,
+) -> str:
+    horizon = f"_ka{max_horizon}" if max_horizon else ""
+    return f"{variant}_{mode}{horizon}_lam{lam}_seed{seed}"
+
+
+def grad_norm(loss: torch.Tensor, params: list[torch.Tensor]) -> float:
+    """Norm of the gradient of one loss term, without touching .grad."""
+    grads = torch.autograd.grad(loss, params, retain_graph=True, allow_unused=True)
+
+    return torch.sqrt(sum((g**2).sum() for g in grads if g is not None)).item()
 
 
 def train_variant(
@@ -69,6 +86,11 @@ def train_variant(
     seed: int,
     device: str,
     n_steps: int = N_STEPS,
+    max_horizon: int | None = None,
+    select_metric: str = "mse",
+    models_dir: Path = VARIANT_MODELS_DIR,
+    results_dir: Path = VARIANT_RESULTS_DIR,
+    log_grads: bool = False,
 ) -> float:
     """
     Trains one variant and saves two checkpoints: the one with the lowest
@@ -89,6 +111,14 @@ def train_variant(
         seed (int): seed for weight initialization and decompositions
         device (str): device used for training
         n_steps (int): number of optimization steps
+        max_horizon (int | None): largest horizon of the auxiliary loss,
+            K_MAX if None. Supported by variants C, D and E.
+        select_metric (str): "mse" (e01) or "median", the validation
+            statistic used to select checkpoints
+        models_dir (Path): directory for checkpoints
+        results_dir (Path): directory for the run summary
+        log_grads (bool): print the gradient norms of the base and the
+            weighted auxiliary term every 100 steps
 
     Returns:
         float: best validation error of the variant's selection path
@@ -117,6 +147,12 @@ def train_variant(
     else:
         base_loss, aux_model = one_step_loss, unit
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    aux_kwargs = {"max_horizon": max_horizon} if max_horizon else {}
+    if select_metric == "mse":
+        val_metrics = {"direct": grounding_loss, "rollout": rollout_error}
+    else:
+        val_metrics = {"direct": direct_median_error, "rollout": rollout_median_error}
+    name = run_name(variant, mode, lam, seed, max_horizon)
 
     best = {path: {"val": float("inf"), "step": 0, "state": None} for path in PATHS}
 
@@ -126,7 +162,15 @@ def train_variant(
         batch = train[idx.to(device)]
         loss = base_loss(aux_model, batch)
         if aux_loss is not None:
-            loss = loss + lam * aux_loss(aux_model, batch, generator)
+            aux = lam * aux_loss(aux_model, batch, generator, **aux_kwargs)
+            if log_grads and (step + 1) % 100 == 0:
+                params = list(model.parameters())
+                base_norm, aux_norm = grad_norm(loss, params), grad_norm(aux, params)
+                print(
+                    f"{name} | Step: {step + 1:05d} | Grad base: {base_norm:.3g} | "
+                    f"Grad aux: {aux_norm:.3g} | Ratio: {aux_norm / base_norm:.3g}"
+                )
+            loss = loss + aux
 
         optimizer.zero_grad()
         loss.backward()
@@ -137,8 +181,8 @@ def train_variant(
             model.eval()
             with torch.no_grad():
                 val_errors = {
-                    "direct": grounding_loss(model, val).item(),
-                    "rollout": rollout_error(unit, val).item(),
+                    "direct": val_metrics["direct"](model, val).item(),
+                    "rollout": val_metrics["rollout"](unit, val).item(),
                 }
             for path in PATHS:
                 if val_errors[path] < best[path]["val"]:
@@ -151,14 +195,13 @@ def train_variant(
                         },
                     }
             print(
-                f"{run_name(variant, mode, lam, seed)} | Step: {step + 1:05d} | "
+                f"{name} | Step: {step + 1:05d} | "
                 f"Loss: {loss.item():.4g} | Val direct: {val_errors['direct']:.4g} | "
                 f"Val rollout: {val_errors['rollout']:.4g}"
             )
 
-    name = run_name(variant, mode, lam, seed)
-    VARIANT_MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    VARIANT_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    models_dir.mkdir(parents=True, exist_ok=True)
+    results_dir.mkdir(parents=True, exist_ok=True)
     summary = {
         "variant": variant,
         "mode": mode,
@@ -166,12 +209,14 @@ def train_variant(
         "seed": seed,
         "steps": n_steps,
         "selected_by": select,
+        "max_horizon": max_horizon,
+        "select_metric": select_metric,
     }
     for path in PATHS:
-        torch.save(best[path]["state"], VARIANT_MODELS_DIR / f"{name}_{path}.pt")
+        torch.save(best[path]["state"], models_dir / f"{name}_{path}.pt")
         summary[f"val_{path}"] = best[path]["val"]
         summary[f"best_step_{path}"] = best[path]["step"]
-    with open(VARIANT_RESULTS_DIR / f"{name}.json", "w") as f:
+    with open(results_dir / f"{name}.json", "w") as f:
         json.dump(summary, f)
 
     return best[select]["val"]

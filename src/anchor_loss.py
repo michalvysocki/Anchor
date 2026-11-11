@@ -207,8 +207,52 @@ def rollout_error(model: nn.Module, windows: torch.Tensor) -> torch.Tensor:
     return nn.functional.mse_loss(torch.stack(states, dim=1), windows[:, 1:])
 
 
+def median_error(preds: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    """
+    Median over windows of the Euclidean error at each horizon, averaged
+    over horizons. Non-finite predictions count as infinite errors.
+
+    Args:
+        preds (torch.Tensor): predictions of size (n, k_max, point_dim)
+        targets (torch.Tensor): true points of size (n, k_max, point_dim)
+
+    Returns:
+        torch.Tensor: scalar error
+    """
+
+    errors = torch.linalg.vector_norm(preds - targets, dim=-1)
+    errors = torch.nan_to_num(errors, nan=float("inf"))
+
+    return errors.median(dim=0).values.mean()
+
+
+def direct_median_error(model: nn.Module, windows: torch.Tensor) -> torch.Tensor:
+    """Median-based error of direct predictions F(z, k), used to select checkpoints."""
+    n, length, point_dim = windows.shape
+    k_max = length - 1
+    k = torch.arange(1, k_max + 1, device=windows.device).repeat(n)
+    starts = windows[:, 0].repeat_interleave(k_max, dim=0)
+    preds = predict(model, starts, k, k_max).reshape(n, k_max, point_dim)
+
+    return median_error(preds, windows[:, 1:])
+
+
+def rollout_median_error(model: nn.Module, windows: torch.Tensor) -> torch.Tensor:
+    """Median-based error of free-running rollouts, used to select checkpoints."""
+    z = windows[:, 0]
+    states = []
+    for _ in range(windows.shape[1] - 1):
+        z = model(z)
+        states.append(z)
+
+    return median_error(torch.stack(states, dim=1), windows[:, 1:])
+
+
 def multistep_loss(
-    model: nn.Module, windows: torch.Tensor, generator: torch.Generator
+    model: nn.Module,
+    windows: torch.Tensor,
+    generator: torch.Generator,
+    max_horizon: int | None = None,
 ) -> torch.Tensor:
     """
     Variant C: a k-step rollout from z_t against the true z_{t+k}, with k
@@ -218,13 +262,16 @@ def multistep_loss(
         model (nn.Module): one-step model
         windows (torch.Tensor): windows of size (n, k_max + 1, point_dim)
         generator (torch.Generator): generator for sampling horizons
+        max_horizon (int | None): largest sampled k, k_max if None
 
     Returns:
         torch.Tensor: scalar loss
     """
 
     n, length, _ = windows.shape
-    k, _, _ = sample_decomposition(n, length - 1, False, generator, windows.device)
+    k, _, _ = sample_decomposition(
+        n, max_horizon or length - 1, False, generator, windows.device
+    )
     rows = torch.arange(n, device=windows.device)
 
     return nn.functional.mse_loss(rollout_to(model, windows[:, 0], k), windows[rows, k])
@@ -236,6 +283,7 @@ def anchor_loss_rollout(
     generator: torch.Generator,
     p_one: bool = False,
     symmetric: bool = False,
+    max_horizon: int | None = None,
 ) -> torch.Tensor:
     """
     Variant D: a k-step rollout from z_t is pulled toward a q-step rollout
@@ -247,13 +295,16 @@ def anchor_loss_rollout(
         generator (torch.Generator): generator for sampling decompositions
         p_one (bool): if True p is always 1
         symmetric (bool): if True gradients flow through both paths
+        max_horizon (int | None): largest sampled k, k_max if None
 
     Returns:
         torch.Tensor: scalar loss
     """
 
     n, length, _ = windows.shape
-    k, p, q = sample_decomposition(n, length - 1, p_one, generator, windows.device)
+    k, p, q = sample_decomposition(
+        n, max_horizon or length - 1, p_one, generator, windows.device
+    )
     rows = torch.arange(n, device=windows.device)
 
     anchor = rollout_to(model, windows[rows, p], q)
@@ -286,6 +337,7 @@ def anchor_loss_unit_rollout(
     generator: torch.Generator,
     p_one: bool = False,
     symmetric: bool = False,
+    max_horizon: int | None = None,
 ) -> torch.Tensor:
     """
     Variant E: the unit-step rollout F(., 1)^k from z_t is pulled toward
@@ -298,6 +350,8 @@ def anchor_loss_unit_rollout(
         generator (torch.Generator): generator for sampling horizons
         p_one (bool): unused, kept for the same signature as other variants
         symmetric (bool): if True gradients flow through both paths
+        max_horizon (int | None): largest sampled k, k_max if None. The
+            one-hot size still comes from the window length.
 
     Returns:
         torch.Tensor: scalar loss
@@ -305,7 +359,9 @@ def anchor_loss_unit_rollout(
 
     n, length, _ = windows.shape
     k_max = length - 1
-    k, _, _ = sample_decomposition(n, k_max, False, generator, windows.device)
+    k, _, _ = sample_decomposition(
+        n, max_horizon or k_max, False, generator, windows.device
+    )
     z = windows[:, 0]
 
     direct = predict(model, z, k, k_max)
