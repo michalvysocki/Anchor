@@ -1,7 +1,7 @@
 \begin{abstract}
 % Problem, gap, what we do, what we show. \todo marks claims that wait for e03.
 Latent world models are trained to predict one step ahead and rolled out recursively, so a latent that does not summarize the history makes long rollouts drift.
-Multi-step consistency losses, which pull the rollout toward the encoded true future, are widely used against this, but their theory covers only one step.
+Multi-step consistency losses, which pull the rollout toward the encoded true future, are widely used against this, but their theory is limited: analyses of self-predictive objectives cover one step, and analyses of multi-step losses consider only the true future as the target.
 We study a family of multi-step targets anchored in real observations, from the encoded true future (Monte Carlo) to the model's own rollout started from a later encoded observation (bootstrapped).
 We show that the conditional mean of the bootstrap residual is the rollout bias, so a critic measures the Markov gap of the latent without the target variance; that for affine models with a stop-gradient every such target leaves the one-step optimum of a Markov latent unchanged; and, in a scalar linear-Gaussian model, that a small weight on it strictly improves the rollout under a Markov gap.
 Anchor mixes the anchor points with weights set by the critic's estimates of bias and variance, and recovers the Monte Carlo target when data are plentiful.
