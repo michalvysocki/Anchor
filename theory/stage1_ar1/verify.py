@@ -1,6 +1,6 @@
 """
 Numerical check of the Stage 1 derivations on AR(1) with observation noise,
-see "Stage 1 Theory" in the research note.
+see "Derivations on AR(1) with observation noise" in the research note.
 
     x_{t+1} = a x_t + w_t,  w_t ~ N(0, sigma2)
     y_t     = x_t + v_t,    v_t ~ N(0, r)
@@ -125,6 +125,45 @@ def check_config(a: float, sigma2: float, r_frac: float, report: Report, rng):
         )
 
 
+def check_residual(a: float, sigma2: float, r_frac: float, report: Report, rng):
+    """
+    Step 6: bootstrap residual R = g^k(y_t) - g^q(y_{t+p}) of a linear
+    one-step model g(y) = b y. Its conditional mean is the rollout bias at
+    horizon p carried forward by g^q, for any b; a critic regressed on the
+    target g^q(y_{t+p}) recovers it without the target variance.
+    """
+
+    s = sigma2 / (1 - a**2)
+    r = r_frac * s
+    kappa = s / (s + r)
+    print(f"\na = {a}, sigma2 = {sigma2}, r = {r:.4f}, kappa = {kappa:.4f}")
+    x, y = simulate(a, sigma2, r, rng)
+
+    print(" step 6: residual of the ideal model, state observed")
+    for k, p in ((2, 1), (5, 2)):
+        q = k - p
+        resid = a**k * x[:, 0] - a**q * x[:, p]
+        report.check(f"E[R | x_t] slope, k={k}, p={p}", slope(resid, x[:, 0]), 0.0)
+        report.check(
+            f"Var[R | x_t], k={k}, p={p}",
+            variance(resid),
+            sigma2 * a ** (2 * q) * sum(a ** (2 * j) for j in range(p)),
+        )
+
+    # b = a kappa is the best one-step model from y; the other b is misfit
+    for b in (a * kappa, 0.6 * a):
+        print(f" step 6: residual of g(y) = {b:+.4f} y, observation noise")
+        for k, p in ((2, 1), (4, 2), (8, 3), (8, 8)):
+            q = k - p
+            resid = b**k * y[:, 0] - b**q * y[:, p]
+            lemma = b**q * (b**p - a**p * kappa)
+            report.check(
+                f"E[R | y_t] slope, k={k}, p={p}", slope(resid, y[:, 0]), lemma
+            )
+            critic, se = slope(b**q * y[:, p], y[:, 0])
+            report.check(f"critic h - g^k, k={k}, p={p}", (critic - b**k, se), -lemma)
+
+
 def check_bound_grid(report: Report):
     """1 - kappa^(k-1) <= (k-1)(1 - kappa) on a grid."""
     kappas = np.linspace(0.0, 1.0, 1001)
@@ -142,6 +181,8 @@ def main():
     report = Report()
     for config in CONFIGS:
         check_config(*config, report, rng)
+    for config in CONFIGS:
+        check_residual(*config, report, rng)
     check_bound_grid(report)
     print(f"\n{report.failures} failed checks")
     sys.exit(1 if report.failures else 0)
