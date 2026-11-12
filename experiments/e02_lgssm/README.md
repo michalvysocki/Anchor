@@ -182,8 +182,101 @@ Claude's subjective probabilities, before any training run:
 
 ## Result
 
-Not available yet.
+Evaluated 2026-11-12 (`evaluate.py`; output in `results/test_results.json`, `results/e02_summary.png`, printed summary in the local `logs/e02_evaluate.log`).
+
+**Completeness.** All 480 runs are present:
+- large arm: 48 configurations × 8 variants;
+- small arm: 12 configurations × 8 variants.
+
+Every run comes from commit 04335d4 and every value is finite. The runs record `git_dirty: true` because the tree also contained the committed smoke-test result files, which the runs overwrote, and edits to `paper/`. No `.py` file differed from the commit.
+
+**Verdicts against the pre-registered criteria:**
+
+| | result | prediction |
+|---|---|---|
+| H1 (agreement with theory and "better", gap configurations with predicted gain ≥ 1%) | C 12/12, M 12/12, M\* 12/12: **holds** | ≈75% |
+| H2 (Markov, large arm, 240 tests) | 171 harmless, 21 better, 47 small increase, **1 material harm**: **fails formally** | ≈90% |
+| H3 (Markov, small arm, 80 tests) | 75 harmless, 5 small increase, 0 material harm | ≈60% no harm |
+| H4 large (M\* vs the better of C and D) | 33/33; largest upper end of the CI of the log ratio $8 \cdot 10^{-5}$: **holds** | ≈80% |
+| H4 small | 7/7; largest upper end 0.0019: **holds** | ≈50% |
+| H5 (critic tracks the gap) | Spearman 0.957 for the critic vs 0.523 for the raw residual (predicted 0.97 / 0.52); every Markov configuration has critic < $10^{-3}$: **holds** | ≈70% |
+
+**Agreement with the population theory** (large arm, non-Markov configurations, selected λ):
+- trained and predicted log ratios differ by at most 0.0015 (median $4 \cdot 10^{-5}$);
+- trained models are at a median distance of 0.006 from the predicted fixed points (at most 0.031).
+
+Examples:
+- AR(2) with κ = 1, $L = 1$: C −0.2465 ± 0.0015 trained vs −0.2465 predicted; D −0.2107 vs −0.2111;
+- $a = 0.99$, κ = 0.8, $L = 2$: C −0.1240 vs −0.1241.
+
+The largest gain is at $a = 0.99$, κ = 0.8, $L = 1$: C −0.354 (30% lower MSE).
+
+Fraction of the onestep → direct gap closed (15 gap configurations):
+
+| C | M\* | D |
+|---|---|---|
+| 0.01–0.90 | 0.01–0.90 | 0.00–0.74 |
+
+**Selected λ.** λ = 10 (the edge of the grid) was selected in 23 of 33 configurations for C, 22 for M\* and 24 for D, as expected from T2 for persistent systems.
+
+**The material harm in H2.** AR(2), κ = 1, $L = 8$, D at λ = 10: +0.241 log ratio (+27% MSE), where 0 is predicted. The trained θ is 1.65 from the predicted fixed point, against a median of 0.006 elsewhere. The 47 small increases (median +0.1%) are also at λ = 10 in long windows or near instability, with distances of 0.2–0.6. The cause is examined in the exploratory analysis below.
+
+**Small arm.** M\* matches C but never beats it:
+
+| configuration | C | M\* | M\*_oracle | D |
+|---|---|---|---|---|
+| $a = 0.99$, κ = 0.5, $L = 1$ | −0.1167 | −0.1153 | −0.1154 | −0.0693 |
+| $a = 0.99$, κ = 0.5, $L = 2$ | −0.1101 | −0.1085 | −0.1086 | −0.0372 |
+
+D is the weakest variant in every configuration of both arms. No configuration of e02 shows an advantage of bootstrapped targets.
+
+**Secondary ablations:**
+- **D_nosg** (no stop-gradient): material harm in 26 of 60 Markov tests in the large arm and 10 of 20 in the small arm; worse than D in 27 of 33 large-arm gap configurations and 5 of 7 small-arm ones. This is as predicted (smoke runs matched the predicted log ratios to the third digit).
+- **M\*_oracle:** within $10^{-4}$ of M\*; better in 3 of 33 and 4 of 7 configurations by tiny amounts. The weights are well estimated.
+- **M\*_p1:** within $10^{-6}$ of M\* on average. The anchor point $p = 1$ adds nothing.
+
+**Outcome.** Formally **R3** (H2 fails by one test). Per R3 the code and the estimation were checked before interpreting (below). Assessment agreed with the user: **R3 formally, R1 after diagnosis.**
+
+## Exploratory analysis (after the evaluation, not pre-registered)
+
+**Convergence check** (`convergence_check.py`, output `results/convergence_check.json`, log `logs/e02_convergence.log`, run 2026-11-12). All four main variants were retrained at λ = 10 in the 15 Markov configurations of the large arm, with 30 000 steps instead of 3000 (same data, seeds and cosine schedule). Log ratios are relative to the original 3000-step onestep runs:
+
+| verdict | 3000 steps | 30 000 steps |
+|---|---|---|
+| material harm | 1 | 0 |
+| small increase | 23 | 1 |
+| harmless | 33 | 11 |
+| better | 3 | 48 |
+
+- **The material harm disappears.** AR(2), $L = 8$, D goes from +0.2407 to −0.0001, and its distance from 1.645 to 0.062.
+- **Distances fall** from 0.2–0.6 to 0.01–0.06.
+- **One small increase remains:** $a = 0.5$, $L = 8$, D, +0.0023, distance 0.098, still not fully converged.
+
+**The "better" verdicts after convergence are an artefact of the baseline.** The 3000-step onestep models are themselves not fully converged. At $a = 0.99$, $L = 2$ their MSE is 0.27% above their own least-squares solution, exactly the apparent gain; at $a = 0.99$, $L = 8$ it is 0.04%, and in the AR(2) and $a = 0.9$ configurations about 0.01%. Once both sides converge, the anchored models sit at the one-step optimum, as T1 states.
+
+**Consequences:**
+- The failure of H2 is an optimization budget, not a violation of T1. A large λ in an ill-conditioned problem (long windows, $a$ near 1) slows convergence, and with a fixed number of steps it looks like harm.
+- The under-converged baseline shifts the log ratios by at most about 0.3%, against gains of 1–30% in H1 and a criterion of agreement at the third digit, so H1 and H4 are unaffected.
+
+**Lessons for e03:**
+1. The training budget must follow a convergence criterion (for example a plateau of the training loss), applied to the baselines as well.
+2. The harm seen in e01b (D at λ = 1, 75× in sufficient) now has two competing explanations: approximation error amplified by chaos, or optimization that does not converge through chaotic rollouts. e03 must tell them apart, for instance by checking whether the harm shrinks with longer training.
 
 ## Conclusion
 
-Not available yet.
+Written by the user, 2026-11-12.
+
+1. e02 confirmed the theory quantitatively in the linear-Gaussian setting with a fixed window encoder:
+   - the population fixed points predicted, before training, the gains of every variant to the third decimal (T2);
+   - for Markov latents nothing changes once optimization converges (T1);
+   - the critic measures the rollout bias and the raw residual does not (lemma, H5);
+   - the stop-gradient is necessary (D_nosg);
+   - the anchor point $p = 1$ carries no signal.
+
+   Nonlinear dynamics, learned encoders and the matrix versions of the theorems were not tested.
+2. M\* is safe: it never falls behind the better of C and D by more than 0.2%. But it does not beat C anywhere in e02. In a stable linear system the variance of the Monte Carlo target does not matter even with about 1000 windows, so the bias–variance rule rightly picks C. Whether M\* gains where bootstrapped targets have an advantage (chaotic dynamics with noise and a learned latent, where D beat C in e01b) is the main question of e03, which decides whether Anchor improves on the standard Monte Carlo loss.
+3. H2 fails formally by one test. The convergence check shows an optimization budget rather than a violation of T1: with ten times more steps the harm disappears and the models reach the one-step optimum. The results support the theory and the safety of the method; its advantage is still open.
+4. Carried to e03:
+   - a training budget set by a convergence criterion, applied to the baselines as well;
+   - a check that separates the two explanations of the e01b harm (approximation error amplified by chaos vs non-convergence through chaotic rollouts);
+   - the protocol of e02: each seed draws its data, verdicts use a margin, and predictions are recorded before training where theory allows.

@@ -1,4 +1,4 @@
-.PHONY: test lint format theory paper
+.PHONY: test lint format theory paper e02-predictions e02-evaluate
 
 test:
 	uv run pytest -q
@@ -16,3 +16,9 @@ theory:
 
 paper:
 	cd paper && tectonic -X compile --synctex --keep-logs main.tex
+
+e02-predictions:
+	uv run python experiments/e02_lgssm/predictions.py > experiments/e02_lgssm/results/predictions.txt
+
+e02-evaluate:
+	uv run python -u experiments/e02_lgssm/evaluate.py | tee logs/e02_evaluate.log

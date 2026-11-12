@@ -20,15 +20,20 @@ import torch
 WANDB_PROJECT = "anchor"
 
 
+# files whose changes make a run not reproducible from its commit; results,
+# notes and the paper may change while experiments run
+CODE_PATHS = ["*.py", "pyproject.toml", "uv.lock"]
+
+
 def git_state() -> dict:
-    """Commit of the working tree and whether it has uncommitted changes."""
+    """Commit of the working tree and whether its code has uncommitted changes."""
     try:
         commit = subprocess.run(
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
         ).stdout.strip()
         dirty = bool(
             subprocess.run(
-                ["git", "status", "--porcelain"],
+                ["git", "status", "--porcelain", "--", *CODE_PATHS],
                 capture_output=True,
                 text=True,
                 check=True,
