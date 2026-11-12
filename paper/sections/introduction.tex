@@ -1,20 +1,21 @@
 \section{Introduction}
 \label{sec:intro}
-% Intent: convince the reader that compounding error comes from the Markov gap,
-% that existing multi-step losses ignore it, and that a cheap signal detects it.
+% Intent: compounding error comes from the Markov gap; the multi-step losses
+% used in practice have no theory beyond one step; we give one, a measure of
+% the gap, and a method whose behaviour the theory predicts.
 
-\todo{Paragraph 1: world models are rolled out recursively; compounding error; why it matters for planning.}
+World models learn the dynamics of an environment and are then rolled out to imagine the future, for planning or for training a policy in imagination. Most are trained to predict one step ahead: an encoder summarizes the history in a latent state, and a dynamics model maps the latent to its successor. A long prediction is a rollout of this one-step model, so its own errors become its inputs and compound with the horizon \citep{talvitie2014model, venkatraman2015improving}.
 
-\todo{Paragraph 2: the Markov gap. With a non-Markov latent the one-step rollout shrinks toward the mean at every step (AR(1): ratio $\kappa^{k-1}$ to the optimum). Direct prediction wins under misspecification \citep{somalwar_statistical}, but it is not a world model one can roll out.}
+One source of compounding error is structural. If the latent does not summarize the history (it is not Markov), the best one-step model predicts the conditional mean of the next latent, and composing conditional means is not the conditional mean of the composition. In the simplest case, a scalar autoregressive state observed with noise, the rollout of the best one-step model reaches only $\kappa^{k-1}$ of the optimal $k$-step prediction, where $\kappa < 1$ is the fraction of the observed signal that is state (\cref{sec:theory}). Direct multi-step prediction avoids this \citep{lambert2021learning, somalwar_statistical}, but it does not yield a model that can be rolled out under new actions.
 
-\todo{Paragraph 3: multi-step consistency losses (TD-MPC, SPR) use Monte Carlo targets; a fixed weight cannot serve both regimes (motivating Hénon figure: e01b, a fixed $\lambda$ that helps in the non-Markov case breaks the near-exact model).}
+In practice, latent world models add a multi-step consistency loss that pulls the rollout toward the encoded true future \citep{hafner2019planet, schwarzer2021spr, hansen2022tdmpc}. The theory of these self-predictive objectives, however, covers one step \citep{tang2023selfpredictive, ni2024bridging}, so basic questions are open. Does a multi-step term help when the latent has a Markov gap, and does it harm when the latent is already Markov? The target need not be the true future: as in temporal-difference learning \citep{sutton2004tdnetworks}, it can be the model's own rollout started from a later observation, with less variance and some bias. When is this better? And can one tell from data whether a latent has a gap at all? On a chaotic system, a fixed weight on a multi-step term either barely helps a partially observed model or damages a fully observed one, and a bootstrapped target beats the true future (\cref{sec:exp-henon}). These effects call for an explanation.
 
-\todo{Paragraph 4: our idea. Bootstrapped targets from later real observations (TD networks); the disagreement between paths measures the Markov gap; Anchor uses it to set its own strength.}
+We study a family of multi-step targets anchored in real observations, indexed by an anchor point $p$: the target for horizon $k$ is the model's rollout of $k - p$ steps from the encoded observation at time $t + p$, and $p = k$ is the true future. Our analysis rests on one identity: the conditional mean of the bootstrap residual is the rollout bias of the model at horizon $p$, carried forward. From it follow the properties of the whole family and a method.
 
-Contributions:
+\paragraph{Contributions.}
 \begin{itemize}
-  \item \todo{One family of multi-step targets from Monte Carlo to bootstrapped, with their bias and variance (Section~\ref{sec:theory}).}
-  \item \todo{Path disagreement as a measure of the Markov gap for world-model state prediction, and a bound of long-horizon rollout bias by short-horizon disagreement.}
-  \item \todo{Anchor: a plug-in loss with adaptive strength; harmless when the latent is Markov.}
-  \item \todo{Experiments from linear-Gaussian systems to chaotic and controlled dynamics.}
+  \item \textbf{Theory of multi-step targets} (\cref{sec:theory}). For affine one-step models, a target under stop-gradient leaves the one-step optimum of a latent that is Markov in the mean unchanged, for every weight; without the stop-gradient this fails. Under a Markov gap a small weight strictly improves the rollout (scalar case), and the bias of long rollouts is bounded by the disagreement at short horizons (scalar case). The identity and the harmlessness result cover the Monte Carlo targets of existing methods as well as bootstrapped ones.
+  \item \textbf{A measure of the Markov gap.} A critic, the regression of a bootstrapped target on the current latent, measures the rollout bias without the target variance, which the raw residual contains. It is the counterpart for world-model prediction of the $\lambda$-discrepancy for value functions \citep{allen2024lambda}.
+  \item \textbf{Anchor} (\cref{sec:method}), a loss without extra model parameters that mixes the anchor points with weights set by the critics' estimates of bias and variance, as the $\lambda$-return mixes $n$-step returns. It recovers the Monte Carlo target when data are plentiful.
+  \item \textbf{Experiments in which theory predicts training} (\cref{sec:experiments}). On linear-Gaussian systems, population fixed points computed before training predict the gains of 30-seed trained models to the third decimal; the critic tracks the gap (rank correlation 0.96, against 0.52 for the raw residual); and removing the stop-gradient harms Markov latents. All experiments were pre-registered. \todo{e03: chaotic dynamics with a learned latent, where bootstrapped targets are expected to help.}
 \end{itemize}

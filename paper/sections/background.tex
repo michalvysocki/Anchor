@@ -1,10 +1,13 @@
 \section{Background}
 \label{sec:background}
-% Intent: fix notation and the two facts everything else uses: the MSE-optimal
+% Intent: notation, and the two facts everything else uses: the MSE-optimal
 % predictor is the conditional mean, and the tower property.
 
-\todo{Setting: observations $y_t$, encoder with history $\z{t} = \varphi(y_{\le t})$, one-step latent dynamics $g$; actions later.}
+\paragraph{Latent world models.}
+Observations $y_t$ are encoded with their history into a latent $\z{t} = \varphi(y_{\le t})$, and a one-step model $g$ predicts $\z{t+1}$; the $k$-step prediction is the rollout $g^{k}(\z{t})$. We consider passive dynamics; actions enter through $g(\z{t}, a_t)$ and are discussed in \cref{sec:conclusion}.
 
-\todo{Conditional expectation as the MSE optimum; tower property $\E[\E[Y \mid X, Z] \mid X] = \E[Y \mid X]$; Markov latent.}
+\paragraph{Conditional means and the Markov gap.}
+Under squared error the best prediction of $Y$ from $X$ is $\E[Y \mid X]$, so a one-step model trained to convergence predicts $\E[\z{t+1} \mid \z{t}]$ (within its class). By the tower property, $\E[\E[Y \mid X, Z] \mid X] = \E[Y \mid X]$. We call the latent \emph{Markov in the mean} if $\E[\z{t+1} \mid \z{\le t}] = \E[\z{t+1} \mid \z{t}]$; then, for an affine $g$ equal to the one-step conditional mean, $g^{p}(\z{t}) = \E[\z{t+p} \mid \z{t}]$ for every $p$ (proof of \cref{prop:t1}). Otherwise the rollout and the optimal $p$-step prediction differ; we call this difference the Markov gap.
 
-\todo{Linear-Gaussian state-space model $x_{t+1} = A x_t + w_t$, $y_t = H x_t + v_t$; Kalman filter as the Markov latent; AR(1) with observation noise as the running example ($\kappa = s / (s + r)$).}
+\paragraph{Running example.}
+A scalar state $x_{t+1} = a x_t + w_t$ with $|a| < 1$ and $w_t \sim \mathcal N(0, \sigma^2)$ is observed as $y_t = x_t + v_t$ with $v_t \sim \mathcal N(0, r)$. With the stationary variance $s = \sigma^2 / (1 - a^2)$ and the signal fraction $\kappa = s / (s + r)$, Gaussian regression gives $\E[y_{t+j} \mid y_t] = a^{j} \kappa \, y_t$. The observation is Markov iff $\kappa = 1$; a window of past observations, or the Kalman filter, closes the gap.

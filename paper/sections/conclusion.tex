@@ -1,3 +1,6 @@
 \section{Conclusion}
 \label{sec:conclusion}
-\todo{Summary, limitations (deterministic latents, multimodal futures, confounding with policy data), follow-up (distributional version).}
+Multi-step consistency targets for latent world models form one family, indexed by where the target is anchored in real observations. One identity, the conditional mean of the bootstrap residual, explains when they help, why they leave a Markov latent unchanged under a stop-gradient, and how a critic measures the Markov gap without the target variance. On linear-Gaussian systems this theory predicts training to the third decimal. Anchor turns it into a loss that mixes the anchor points by estimated bias and variance and matches the better of the Monte Carlo and bootstrapped targets. \todo{e03 result.}
+
+\paragraph{Limitations.}
+Two of the theorems (the strict improvement and the rollout bound) are proven for a scalar model; the others hold for affine models, and nonlinear models add a Jensen term. The linear experiments fix the encoder, so they cannot show the effect of the targets on a learned representation, which is where the variance of the Monte Carlo target is expected to matter. With actions, the tower property holds when the data policy depends only on the latent; data from a policy that sees the true state confound the targets. Deterministic latents predict conditional means, so multimodal futures are averaged. \todo{Matrix versions of T2 and T4; a distributional version; actions.}

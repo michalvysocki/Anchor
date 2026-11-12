@@ -1,8 +1,10 @@
 \begin{abstract}
-% Four sentences: problem, gap, what we do, what we show. Claims marked
-% \todo are hypotheses until the experiments and proofs are done.
-Latent world models are trained to predict one step ahead and rolled out recursively, so a latent that does not summarize the history makes long-horizon predictions drift.
-Multi-step consistency losses used in practice compare the rollout with the encoded true future, a Monte Carlo target whose variance grows with the horizon, and they apply the same pressure whether or not the latent is Markov.
-We propose Anchor, an auxiliary loss without extra parameters that pulls the rollout toward a bootstrapped target started from a later real observation, and we show that the conditional mean of its residual is the rollout bias, so that the disagreement between predictive paths measures the Markov gap of the latent.
-We prove that Anchor's gradient vanishes when the latent is Markov and that a small Anchor term strictly improves rollouts under a Markov gap in linear-Gaussian systems, \todo{and show empirically that it improves rollouts under partial observability without harming the well-specified case.}
+% Problem, gap, what we do, what we show. \todo marks claims that wait for e03.
+Latent world models are trained to predict one step ahead and rolled out recursively, so a latent that does not summarize the history makes long rollouts drift.
+Multi-step consistency losses, which pull the rollout toward the encoded true future, are widely used against this, but their theory covers only one step.
+We study a family of multi-step targets anchored in real observations, from the encoded true future (Monte Carlo) to the model's own rollout started from a later encoded observation (bootstrapped).
+We show that the conditional mean of the bootstrap residual is the rollout bias, so a critic measures the Markov gap of the latent without the target variance; that for affine models with a stop-gradient every such target leaves the one-step optimum of a Markov latent unchanged; and, in a scalar linear-Gaussian model, that a small weight on it strictly improves the rollout under a Markov gap.
+Anchor mixes the anchor points with weights set by the critic's estimates of bias and variance, and recovers the Monte Carlo target when data are plentiful.
+On linear-Gaussian systems, fixed points computed before training predict the gains of trained models to the third decimal, the critic tracks the Markov gap where the raw residual does not, and removing the stop-gradient harms as predicted.
+\todo{One sentence on e03: whether Anchor beats the Monte Carlo target on chaotic dynamics with a learned latent.}
 \end{abstract}
