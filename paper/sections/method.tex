@@ -29,10 +29,10 @@ The mixture of targets plays the role of the $\lambda$-return in TD($\lambda$): 
 \paragraph{Bias--variance weights (M\textsuperscript{*}).}
 The targets differ in bias and variance. Given $\z{t}$, $T_{k,k}$ is unbiased for $\E[\z{t+k} \mid \z{t}]$ but carries all the randomness of the next $k$ steps; $T_{k,p}$ with $p < k$ removes the randomness of the last $k - p$ steps but inherits the rollout bias of the model at horizon $p$ (Lemma~\ref{lem:residual}). Both quantities can be estimated with \emph{critics}: regressions $h_{k,p}(\z{t}) \approx \E[T_{k,p} \mid \z{t}]$. The bias of $T_{k,p}$ is $h_{k,p} - h_{k,k}$ and its variance is the residual of $h_{k,p}$ (Corollary~\ref{cor:critic}). Anchor chooses
 \begin{equation}
-  w_{k} = \argmin_{w \in \Delta} \; w^\top \big(B_k + V_k / N\big) \, w,
+  w_{k} = \argmin_{w \in \Delta} \; w^\top Q_k \, w, \qquad Q_k = B_k + V_k / N,
   \label{eq:weights}
 \end{equation}
-where $(B_k)_{pp'} = \E[(h_{k,p} - h_{k,k})(h_{k,p'} - h_{k,k})]$, $(V_k)_{pp'}$ is the covariance of the critics' residuals, and $N$ is the number of training windows. The weights are recomputed periodically and kept under stop-gradient. Because C has zero bias, the rule recovers C as $N \to \infty$; with little data, or when the target variance grows quickly with the horizon, it moves weight to bootstrapped targets.
+where $\Delta$ is the probability simplex, $(B_k)_{pp'} = \E[(h_{k,p} - h_{k,k})(h_{k,p'} - h_{k,k})]$, $(V_k)_{pp'}$ is the covariance of the critics' residuals, and $N$ is the number of training windows; $w^\top Q_k w$ is the mean squared error of the mixed target, its squared bias plus its variance divided by the sample size. The weights are recomputed periodically and kept under stop-gradient. Because C has zero bias, the rule recovers C as $N \to \infty$; with little data, or when the target variance grows quickly with the horizon, it moves weight to bootstrapped targets.
 
 \paragraph{Cost.}
 Anchor adds no parameters to the world model. M\textsuperscript{*} needs the critics only during training: for a linear model they are least-squares regressions on second moments of the data; for neural models they are small heads trained alongside the model \todo{e03}. Rolling out to the largest horizon in $\mathcal K$ costs $\max \mathcal K$ applications of $g$ per window.
