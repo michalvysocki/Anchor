@@ -18,6 +18,6 @@ For a horizon $k = p + q$, the target with bootstrap point $p$ is
 
 \paragraph{The Anchor loss.}
 \begin{equation}
-  \Lanchor = \Lone + \lambda(\gap) \sum_{p} w_p \, \big\| g^{k}(\z{t}) - \sg[\Tp] \big\|^2 .
+  \Lanchor = \Lone + \lambda \sum_{p \ge 2} w_p \, \big\| g^{k}(\z{t}) - \sg[\Tp] \big\|^2 .
 \end{equation}
-\todo{Weights $w_p$ and the rule $\lambda(\gap)$ from Section~\ref{sec:theory}; grounding through the one-step loss and real-observation targets; stop-gradient.}
+A fixed $\lambda$ suffices: the gradient of the Anchor term vanishes when the latent is Markov (Proposition~\ref{prop:t1}), and bootstrap points $p = 1$ carry no signal at the one-step optimum (Remark~\ref{rem:p1}). \todo{Weights $w_p$ from T3; grounding through the one-step loss and real-observation targets; stop-gradient; adaptive $\lambda$ only if experiments show harm where Proposition~\ref{prop:t1} does not apply.}

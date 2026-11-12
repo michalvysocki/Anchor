@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import numpy as np
@@ -29,6 +28,7 @@ from anchor.metrics import (
     rollout_mse,
 )
 from anchor.models import HorizonMLP, UnitStep
+from anchor.tracking import RunLogger
 
 HIDDEN_SIZE = 256
 N_TRAJ = 1000
@@ -87,6 +87,7 @@ def train_variant(
     select_metric: str = "mse",
     val_horizon: int | None = None,
     log_grads: bool = False,
+    use_wandb: bool = False,
 ) -> float:
     """
     Trains one variant and saves two checkpoints: the one with the lowest
@@ -117,6 +118,7 @@ def train_variant(
             horizons 1..val_horizon only; all horizons if None (e01)
         log_grads (bool): print the gradient norms of the base and the
             weighted auxiliary term every 100 steps
+        use_wandb (bool): mirror the training curve to Weights & Biases
 
     Returns:
         float: best validation error of the variant's selection path
@@ -156,6 +158,24 @@ def train_variant(
     else:
         val_metrics = {"direct": direct_median_error, "rollout": rollout_median_error}
     name = run_name(variant, mode, lam, seed, max_horizon)
+    tracker = RunLogger(
+        name,
+        results_dir,
+        {
+            "variant": variant,
+            "mode": mode,
+            "lambda": lam,
+            "seed": seed,
+            "steps": n_steps,
+            "selected_by": select,
+            "max_horizon": max_horizon,
+            "select_metric": select_metric,
+            "val_horizon": val_horizon,
+        },
+        device,
+        use_wandb,
+        group=Path(results_dir).parent.name,
+    )
 
     best = {path: {"val": float("inf"), "step": 0, "state": None} for path in PATHS}
 
@@ -197,6 +217,12 @@ def train_variant(
                             for k, v in model.state_dict().items()
                         },
                     }
+            tracker.log(
+                step + 1,
+                loss=loss.item(),
+                val_direct=val_errors["direct"],
+                val_rollout=val_errors["rollout"],
+            )
             print(
                 f"{name} | Step: {step + 1:05d} | "
                 f"Loss: {loss.item():.4g} | Val direct: {val_errors['direct']:.4g} | "
@@ -204,23 +230,11 @@ def train_variant(
             )
 
     models_dir.mkdir(parents=True, exist_ok=True)
-    results_dir.mkdir(parents=True, exist_ok=True)
-    summary = {
-        "variant": variant,
-        "mode": mode,
-        "lambda": lam,
-        "seed": seed,
-        "steps": n_steps,
-        "selected_by": select,
-        "max_horizon": max_horizon,
-        "select_metric": select_metric,
-        "val_horizon": val_horizon,
-    }
+    results = {}
     for path in PATHS:
         torch.save(best[path]["state"], models_dir / f"{name}_{path}.pt")
-        summary[f"val_{path}"] = best[path]["val"]
-        summary[f"best_step_{path}"] = best[path]["step"]
-    with open(results_dir / f"{name}.json", "w") as f:
-        json.dump(summary, f)
+        results[f"val_{path}"] = best[path]["val"]
+        results[f"best_step_{path}"] = best[path]["step"]
+    tracker.finish(results)
 
     return best[select]["val"]

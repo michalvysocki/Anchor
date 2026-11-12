@@ -1,6 +1,47 @@
 \section{Proofs}
 \label{app:proofs}
-\todo{Proofs of T1--T5; AR(1) derivations (steps 1--5) as the scalar case.}
+
+\paragraph{Proof of Lemma~\ref{lem:residual}.}
+Since $g^{k}(\z{t}) = g^{q}(g^{p}(\z{t}))$ is a function of $\z{t}$, it leaves the conditional expectation. Since $g^{q}$ is affine, $\E[g^{q}(\z{t+p}) \mid \z{t}] = g^{q}(\E[\z{t+p} \mid \z{t}])$. Hence
+\[
+  \E[R_{p,q} \mid \z{t}] = g^{q}(g^{p}(\z{t})) - g^{q}(\E[\z{t+p} \mid \z{t}]) = A^{q}\big(g^{p}(\z{t}) - \E[\z{t+p} \mid \z{t}]\big),
+\]
+because $g^{q}(u) - g^{q}(v) = A^{q}(u - v)$ for an affine map. \hfill$\square$
+
+\paragraph{Proof of Corollary~\ref{cor:critic}.}
+The MSE-optimal function of $\z{t}$ for the target $g^{q}(\z{t+p})$ is its conditional mean. Subtracting $g^{k}(\z{t})$ and using Lemma~\ref{lem:residual} gives the claim. For $p = k$, $q = 0$ and the target is $\z{t+k}$. \hfill$\square$
+
+\paragraph{Proof of Remark~\ref{rem:p1}.}
+For $p = 1$ the bracket of Lemma~\ref{lem:residual} is $g(\z{t}) - \E[\z{t+1} \mid \z{t}] = 0$. \hfill$\square$
+
+\paragraph{Proof of Proposition~\ref{prop:t1}.}
+First, $\E[\z{t+p} \mid \z{t}] = g^{p}(\z{t})$ for every $p \ge 1$. For $p = 1$ this is the assumption. If it holds for $p - 1$, then by the tower property, Markovness in the mean and the affinity of $g$,
+\[
+  \E[\z{t+p} \mid \z{t}]
+  = \E\big[\E[\z{t+p} \mid \z{\le t+p-1}] \mid \z{t}\big]
+  = \E[g(\z{t+p-1}) \mid \z{t}]
+  = g(\E[\z{t+p-1} \mid \z{t}])
+  = g^{p}(\z{t}).
+\]
+By Lemma~\ref{lem:residual}, $\E[R_{p,q} \mid \z{t}] = A^{q} \cdot 0 = 0$. Since $J(\z{t})$ is a function of $\z{t}$, the tower property gives
+\[
+  \E[R_{p,q} \, J(\z{t})] = \E\big[\E[R_{p,q} \mid \z{t}] \, J(\z{t})\big] = 0 .
+\]
+At the optimum of $\Lone$ its own gradient is zero, so the gradient of $\Lanchor$ is zero for every $\lambda$ and $w_p$. \hfill$\square$
+
+\paragraph{Proof of Proposition~\ref{prop:t4-ar1}.}
+$(x_t, y_t)$ is jointly Gaussian and stationary with $\operatorname{Cov}(y_{t+j}, y_t) = a^{j} s$ and $\Var(y_t) = s + r$, so $\E[y_{t+j} \mid y_t] = a^{j} \kappa\, y_t$. The best linear one-step model is $g(y) = a\kappa y$, whose $k$-step rollout $(a\kappa)^{k} y_t$ has bias $a^{k}\kappa(\kappa^{k-1} - 1)\, y_t$; at $k = 2$ the disagreement between the rollout and the direct prediction is $a^{2}\kappa(\kappa - 1)\, y_t$. Finally,
+\[
+  1 - \kappa^{k-1} = (1 - \kappa) \sum_{j=0}^{k-2} \kappa^{j} \le (k-1)(1 - \kappa)
+\]
+since $0 < \kappa \le 1$, and multiplying by $|a|^{k}\kappa\,|y_t| = |a|^{k-2} \cdot |a|^{2}\kappa\,|y_t|$ gives the bound. \hfill$\square$
+
+\paragraph{Proof of Proposition~\ref{prop:t2-ar1}.}
+With $\E[y_t^2] = S$ and $\E[y_{t+j} y_t] = a^{j}\kappa S$ for $j \ge 1$, setting the derivative with respect to the non-stopped $b$ to zero and substituting the stopped $b$ gives, after division by $2S$, the fixed-point condition
+\[
+  F(b, \lambda) = (b - a\kappa) + 3\lambda\, b^{3} (b^{2} - a^{2}\kappa) = 0 .
+\]
+At $\lambda = 0$, $b = a\kappa$ and $\partial_b F = 1$, so by the implicit function theorem $b'(0) = -\partial_\lambda F = -3 (a\kappa)^{3}\big((a\kappa)^{2} - a^{2}\kappa\big) = 3 a^{5}\kappa^{4}(1 - \kappa)$, which has the sign of $a$. At $b = a\kappa$, $\mathcal E_k'(b) = 2S\,(b^{k} - a^{k}\kappa)\, k\, b^{k-1} = 2Sk\, a^{2k-1}\kappa^{k}(\kappa^{k-1} - 1)$, which is $0$ for $k = 1$ and has the sign of $-a$ for $k \ge 2$. Hence $\frac{d}{d\lambda}\mathcal E_k(b(\lambda))|_{0} = \mathcal E_k'(a\kappa)\, b'(0)$ is $0$ for $k = 1$ and strictly negative for $k \ge 2$. \hfill$\square$
 
 \section{Experimental details}
 \label{app:details}

@@ -1,16 +1,78 @@
 \section{Theory}
 \label{sec:theory}
 % Intent: properties of the method, each with a numerical check
-% (theory/ in the repository). Proofs in the appendix.
+% (theory/ in the repository). Proofs in Appendix~\ref{app:proofs}.
 
-\todo{T1 Harmlessness: for a Markov latent and an exact model the optimum of the one-step loss is a fixed point of $\Lanchor$.}
+Throughout this section the encoder is fixed and the one-step dynamics are affine, $g(z) = A z + c$, so that $g^{q}(z) = A^{q} z + c_q$ for some $c_q$. The bootstrap residual of a horizon $k = p + q$ is
+\begin{equation}
+  R_{p,q} = g^{k}(\z{t}) - g^{q}(\z{t+p}),
+\end{equation}
+and the gradient of the Anchor term with respect to the parameters $\theta$ of $g$ (the target is under stop-gradient) is $\E[R_{p,q} \, J(\z{t})]$ with $J(\z{t}) = \partial g^{k}(\z{t}) / \partial \theta$.
 
-\todo{T2 Anchor under a Markov gap: fixed point of $\Lanchor$ with $\lambda(\gap)$ for a linear $g$; gain over the one-step model and cost at short horizons.}
+\subsection{What the bootstrap residual measures}
 
-\todo{T3 Bootstrap vs Monte Carlo: $\Var[\Tp]$ decreases with $p$; bias--variance trade-off and the weights $w_p$. AR(1): $\Var[C] = \sigma^2 \sum_{j<k} a^{2j}$, $\Var[D] = \sigma^2 \sum_{q \le j < k} a^{2j}$.}
+\begin{lemma}[Residual mean]
+\label{lem:residual}
+For any process $(\z{t})$ and any affine $g$,
+\begin{equation}
+  \E[R_{p,q} \mid \z{t}] = A^{q} \big( g^{p}(\z{t}) - \E[\z{t+p} \mid \z{t}] \big).
+\end{equation}
+\end{lemma}
 
-\todo{T4 Disagreement controls rollout bias: AR(1) bound $|a^k \kappa (1 - \kappa^{k-1})| \le (k-1) |a|^{k-2} \, |a^2 \kappa (1 - \kappa)|$; matrix version by telescoping; estimator of $\gap$ separated from variance.}
+The bracket is the bias of the $p$-step rollout with respect to the MSE-optimal $p$-step prediction; the residual carries it forward by $q$ steps of the model. The mean squared residual adds the target variance, $\E[R_{p,q}^2 \mid \z{t}] = \|\E[R_{p,q} \mid \z{t}]\|^2 + \operatorname{tr}\Var[g^{q}(\z{t+p}) \mid \z{t}]$, which is positive even when the rollout is unbiased; the raw residual is therefore not a measure of the gap.
+
+\begin{corollary}[Critic]
+\label{cor:critic}
+A head $h$ trained by MSE on the target $g^{q}(\z{t+p})$ converges to $\E[g^{q}(\z{t+p}) \mid \z{t}]$, so $h(\z{t}) - g^{k}(\z{t}) = -A^{q}\big(g^{p}(\z{t}) - \E[\z{t+p} \mid \z{t}]\big)$: the propagated rollout bias without the target variance. For $p = k$ the head is the direct predictor and measures the rollout bias at horizon $k$.
+\end{corollary}
+
+\begin{remark}[The first step carries no signal]
+\label{rem:p1}
+If $g(\z{t}) = \E[\z{t+1} \mid \z{t}]$, then $\E[R_{1,q} \mid \z{t}] = 0$ whether or not the latent is Markov: at the one-step optimum, bootstrap points $p = 1$ add only variance. Anchor therefore samples $p \ge 2$.
+\end{remark}
+
+\subsection{Harmlessness (T1)}
+
+\begin{proposition}[Anchor switches off for a Markov latent]
+\label{prop:t1}
+Suppose the latent is Markov in the mean, $\E[\z{t+1} \mid \z{\le t}] = \E[\z{t+1} \mid \z{t}]$, and the one-step model is exact, $g(\z{t}) = \E[\z{t+1} \mid \z{t}]$ with $g$ affine. Then for every $k = p + q$ the gradient of the Anchor term vanishes, $\E[R_{p,q} \, J(\z{t})] = 0$. Hence the optimum of $\Lone$ is a stationary point of $\Lanchor$ for every $\lambda \ge 0$ and every choice of weights $w_p$.
+\end{proposition}
+
+Stationarity does not imply that training converges to this point or that it is the only one; the encoder is held fixed (its gradient is the subject of T5).
+\todo{T1 for nonlinear $g$: Jensen term $\E[g^{q}(Y)] - g^{q}(\E[Y])$.}
+
+\subsection{Disagreement bounds rollout bias (T4, scalar case)}
+
+\begin{proposition}[AR(1) with observation noise]
+\label{prop:t4-ar1}
+Let $x_{t+1} = a x_t + w_t$ with $|a| < 1$, $w_t \sim \mathcal N(0, \sigma^2)$, observed as $y_t = x_t + v_t$, $v_t \sim \mathcal N(0, r)$, and let $\kappa = s / (s + r)$ with $s = \sigma^2 / (1 - a^2)$. With the observation as the latent and the best one-step model $g(y) = a \kappa y$, the bias of the $k$-step rollout and the path disagreement at $k = 2$ are $a^{k} \kappa (\kappa^{k-1} - 1)\, y_t$ and $a^{2} \kappa (\kappa - 1)\, y_t$, and
+\begin{equation}
+  \big| a^{k} \kappa (1 - \kappa^{k-1})\, y_t \big| \le (k-1) |a|^{k-2} \, \big| a^{2} \kappa (1 - \kappa)\, y_t \big| .
+\end{equation}
+\end{proposition}
+
+Zero disagreement at $k = 2$ thus implies zero rollout bias at every horizon, and for $|a| < 1$ the constant is bounded uniformly in $k$. The bound is tight to first order as $\kappa \to 1$.
+\todo{Matrix version on the linear-Gaussian SSM by telescoping; unstable dynamics $|a| \ge 1$ are not covered.}
+
+\subsection{Anchor improves rollouts under a Markov gap (T2, scalar case)}
+
+\begin{proposition}[Small Anchor always helps]
+\label{prop:t2-ar1}
+In the setting of Proposition~\ref{prop:t4-ar1} with $a \ne 0$ and $\kappa < 1$, let $b(\lambda)$ be the fixed point (under stop-gradient) of $\E[(y_{t+1} - b y_t)^2] + \lambda \E[(b^{3} y_t - \sg[b\, y_{t+2}])^2]$ that equals $a\kappa$ at $\lambda = 0$. With the excess error $\mathcal E_k(b) = \Var(y_t)\,(b^{k} - a^{k}\kappa)^2$ of the $k$-step rollout,
+\begin{equation}
+  \frac{d}{d\lambda} \sum_{k=1}^{K} \mathcal E_k\big(b(\lambda)\big) \Big|_{\lambda = 0} < 0 \qquad \text{for every } K \ge 2 .
+\end{equation}
+\end{proposition}
+
+The cost at $k = 1$ is of second order in $\lambda$ because the one-step model sits at its optimum, while the gain at every $k \ge 2$ is of first order. As $\lambda \to \infty$ the fixed point tends to $a\sqrt{\kappa}$, which is exact at $k = p = 2$; a linear one-step model can be exact at a single horizon, and $p$ selects it. The degenerate $b = 0$ is also a fixed point in this limit. \todo{Stability of the fixed points; optimal $\lambda$ (numerically it depends on $a$ much more than on $\kappa$); matrix version.}
+
+\subsection{Open properties}
+
+
+\todo{T3 Bootstrap vs Monte Carlo: $\Var[\Tp]$ decreases with $p$ (AR(1): $\Var[C] = \sigma^2 \sum_{j<k} a^{2j}$, $\Var[D] = \sigma^2 \sum_{q \le j < k} a^{2j}$); the trade-off now governs how fast the critic learns, and gives the weights $w_p$.}
 
 \todo{T5 No collapse: a constant latent has zero disagreement; conditions under which grounding and stop-gradient exclude it.}
 
 \todo{Remark on actions: the tower property holds when the data policy depends only on the latent; otherwise targets are confounded.}
+
+Every closed form above is checked against simulation in the repository (\texttt{theory/stage1\_ar1/verify.py}).
