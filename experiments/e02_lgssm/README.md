@@ -262,6 +262,25 @@ D is the weakest variant in every configuration of both arms. No configuration o
 1. The training budget must follow a convergence criterion (for example a plateau of the training loss), applied to the baselines as well.
 2. The harm seen in e01b (D at λ = 1, 75× in sufficient) now has two competing explanations: approximation error amplified by chaos, or optimization that does not converge through chaotic rollouts. e03 must tell them apart, for instance by checking whether the harm shrinks with longer training.
 
+**Exploratory ensemble check** (`explore_ensemble.py`, output `results/explore_ensemble.json`, run 2026-11-12). Question: does the disagreement of an ensemble of one-step models see the Markov gap? Ensembles of 5 least-squares one-step models on bootstrap resamples of the same windows (as in PETS), 10 seeds, four configurations, 315 to 126 000 training windows; exact population moments, units of Var(y). The prediction was written in the script before the first run: the ensemble disagreement falls with N, while the excess rollout error and the critic stay at their population values.
+
+| configuration | windows | disagreement, k = 10 | excess rollout MSE, k = 10 | critic |
+|---|---|---|---|---|
+| AR(1) a = 0.9, κ = 1, L = 1 (Markov) | 315 | 6.0e-3 | 0.0140 | 0.0035 |
+| | 126 000 | 1.3e-5 | 0.0000 | 0.00001 |
+| AR(1) a = 0.9, κ = 0.8, L = 1 | 315 | 4.0e-4 | 0.0553 | 0.0131 |
+| | 126 000 | 7.4e-7 | 0.0582 | 0.0111 |
+| AR(1) a = 0.9, κ = 0.5, L = 1 | 315 | 6.9e-7 | 0.0301 | 0.0072 |
+| | 126 000 | 2.7e-10 | 0.0303 | 0.0083 |
+| AR(2), κ = 0.8, L = 2 | 310 | 1.5e-4 | 0.0392 | 0.0304 |
+| | 124 000 | 1.8e-7 | 0.0397 | 0.0301 |
+
+Population values (excess, critic): 0 and 0 for the Markov configuration; 0.0583 and 0.0112, 0.0303 and 0.0084, 0.0397 and 0.0300 for the three with a gap.
+
+- **The prediction holds.** With a gap, the excess rollout error and the critic stay at their population values at every N, while the ensemble disagreement falls by a factor of 500 to 2 600 over the 400-fold increase in data.
+- **The ensemble is blind to the gap even with little data.** At 315 windows, its disagreement is 140 to 44 000 times smaller than the excess error it should warn about, because every member converges to the same biased one-step solution. Only for the Markov latent are both quantities of the same order, since all remaining error is estimation error.
+- **Limits.** The members are linear and differ only by resampling. Neural ensembles add diversity from initialization, but the bias of the population one-step optimum is shared by every member regardless; whether this holds for learned latents is a question for e03.
+
 ## Conclusion
 
 Written by the user, 2026-11-12.
