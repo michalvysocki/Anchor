@@ -281,6 +281,42 @@ Population values (excess, critic): 0 and 0 for the Markov configuration; 0.0583
 - **The ensemble is blind to the gap even with little data.** At 315 windows, its disagreement is 140 to 44 000 times smaller than the excess error it should warn about, because every member converges to the same biased one-step solution. Only for the Markov latent are both quantities of the same order, since all remaining error is estimation error.
 - **Limits.** The members are linear and differ only by resampling. Neural ensembles add diversity from initialization, but the bias of the population one-step optimum is shared by every member regardless; whether this holds for learned latents is a question for e03.
 
+**Exploratory flag check** (`explore_flag.py`, output `results/explore_flag.json`, run 2026-11-12). Question: does a one-step model that distinguishes encoded from predicted latents remove the ceiling of the rollout under a Markov gap? The flagged model maps the window to a prediction latent of dimension n (the AR order) with a first-step map $G_0$, applies $G_1$ at every later step and reads out $y$ with $c$; the e02 one-step model uses one map for both. Population losses, one-step plus λ times the Monte Carlo loss, all parameters trained jointly by L-BFGS, best of 8 initializations, λ ∈ {0.01, 1, 100}. The prediction was written in the script before the first run: since $E[x_{t+k} \mid z_t] = A^{k-1} E[x_{t+1} \mid z_t]$ for any window, the flagged rollout can equal the best direct prediction at every horizon, so the one-step and multi-step terms share their minimizer and there is no trade-off in λ.
+
+| configuration | one-step model, largest excess over direct (k = 1..10) | flagged, horizons {1, 3, 4} | flagged, horizons {1, 2, 3, 4} |
+|---|---|---|---|
+| AR(1) a = 0.9, κ = 1, L = 1 (Markov) | 0 | 1e-16 | 4e-16 |
+| AR(1) a = 0.9, κ = 0.8, L = 1 | 0.082 | 1e-16 | 1e-16 |
+| AR(1) a = 0.99, κ = 0.5, L = 1 | 0.211 | 8e-16 | 8e-15 |
+| AR(1) a = 0.9, κ = 0.5, L = 4 | 0.008 | 1e-16 | 1e-16 |
+| AR(2), κ = 0.8, L = 1 | 0.283 | **55** | 5e-14 |
+| AR(2), κ = 0.8, L = 2 | 0.262 | 1e-14 | 1e-14 |
+| AR(2), κ = 0.5, L = 4 | 0.041 | 6e-15 | 1e-13 |
+
+Worst value over the three λ in units of Var(y).
+
+- **The prediction holds where the model is identified.** The flagged rollout equals the best direct prediction at every horizon to machine precision, for every λ, with no cost at k = 1. The one-step model of e02 loses up to 0.28 Var(y).
+- **One failure, explained by identifiability.** AR(2) with a one-observation window trained on {1, 3, 4} diverges beyond k = 4: three scalar impulse responses do not determine a second-order $G_1$. Trained on the first 2n = 4 horizons it is exact, and its $G_1$ has eigenvalues $0.779 \pm 0.450i = 0.9\,e^{\pm i\pi/6}$, the true dynamics of the state. The second set of horizons was added after this failure.
+- **Relation to known results.** In linear systems this is the predictor form of a state-space model, determined by 2n consecutive impulse responses as in Ho–Kalman realization; the linear algebra is classical system identification. What is not classical is the diagnosis for latent world models, which apply one transition to encoded and predicted latents, and the consequence that the flag removes the Markov-gap ceiling of every multi-step loss. Whether it survives nonlinear dynamics, where the mean of the state is no longer propagated exactly, is a question for e03.
+
+**Exploratory flag predictions** (`explore_flag_predictions.py`, output `results/explore_flag_predictions.json`, log `logs/e02_explore_flag_predictions.log`, run 2026-11-12/13). Population stop-gradient fixed points of the flagged variants C+F, D+F, M+F and M*+F in all 48 configurations, λ ∈ {0.01, 0.1, 1, 10}, on the training horizons {1, 2, 3, 4} (the first 2n) and the e02 horizons {1, 3, 4}. Gap closed = (one-step − variant) / (one-step − direct), on the mean rollout MSE over k = 1..10, best λ, in the 32 configurations with a gap.
+
+| | gap closed, median | min | configurations ≥ 0.999 |
+|---|---|---|---|
+| e02 without flag, best of C, D, M, M* | 0.37 (M) | — | max 0.90 |
+| C+F, {1, 2, 3, 4} | 1.000 | 1.000 | 32 / 32 |
+| M*+F, {1, 2, 3, 4} | 1.000 | 0.973 | 31 / 32 |
+| M+F, {1, 2, 3, 4} | 0.91 | diverges (1) | 5 / 32 |
+| D+F, {1, 2, 3, 4} | 0.74 | diverges (2) | 3 / 32 |
+| C+F, {1, 3, 4} | 1.000 | diverges | 25 / 32 |
+
+- **The prediction was revised before the full run** (see the script): a test on four configurations showed that D+F does not reach the optimum. A bootstrapped target is computed from the window at $t+p$, which does not contain the window at $t$, so $E[E[y_{t+k} \mid z_{t+p}] \mid z_t] \neq E[y_{t+k} \mid z_t]$: the tower property needs nested information. The flag removes the bias of the model, not this bias of the target, which vanishes only for a Markov latent.
+- **C+F closes the whole gap in all 32 configurations**, against at most 0.90 (median 0.33) for C without the flag. The worst λ differs from the best only at λ = 0.01 with L = 8, where the solver had not converged (field norm up to 2e-3); at λ ≥ 0.1 every λ gives the same result.
+- **M*+F matches C+F** (31 of 32 at 0.999 or more; the remaining one, $a = 0.5$, κ = 0.8, $L = 2$, at 0.973 has a gap of 3e-4 Var(y)). Its critics detect the information bias of the bootstrapped targets and its weights move to C.
+- **D+F and M+F stay biased** and, for AR(2) with L = 1, have no stable fixed point on this branch (12 of 192 D+F and 8 of 192 M+F runs unconverged or divergent).
+- **Markov latents:** every variant is exact (excess ≤ 6e-6), except unconverged C+F and M*+F runs at λ = 0.01, L = 8.
+- **Horizons {1, 3, 4} are not enough for second-order systems**: C+F fails in 7 AR(2) configurations, as the identifiability argument predicts.
+
 ## Conclusion
 
 Written by the user, 2026-11-12.
