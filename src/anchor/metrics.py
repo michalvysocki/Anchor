@@ -290,8 +290,8 @@ def mean_ci(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def to_lists(results: dict) -> dict:
-    """Converts numpy arrays to lists for JSON."""
+    """Converts numpy arrays to lists for JSON; other values are kept."""
     if isinstance(results, dict):
         return {k: to_lists(v) for k, v in results.items()}
 
-    return results.tolist()
+    return results.tolist() if hasattr(results, "tolist") else results
