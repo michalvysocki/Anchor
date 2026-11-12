@@ -10,13 +10,13 @@ This is ongoing research. Every experiment has a README written before it runs, 
 
 | experiment | system | outcome |
 |---|---|---|
-| e01 (`experiments/e01_v0`) | Hénon map, raw observations, variants A–E | direct beats rollout under partial observation; no variant helped without harm; design errors (horizons beyond predictability, unbalanced gradients) |
-| shelved (`experiments/shelved/limited_horizon`) | e01 with limited horizons | not run: raw observations leave no latent to shape |
+| e01 (`experiments/e01_v0`) | Hénon map, raw observations, variants A–E | **superseded by e01b.** Direct beats rollout under partial observation (stands); no variant helped without harm, because of design errors (horizons beyond predictability, unbalanced gradients) |
+| archived (`experiments/archive/limited_horizon`) | e01 with limited horizons | designed, not run: raw observations leave no latent to shape |
 | e01b (`experiments/e01b_corrected`) | e01 with its design errors corrected | R1 formally, R3 in practice: short horizons and small λ do no harm, but no fixed λ helps in one regime without harming the other |
 | e02 (`experiments/e02_lgssm`) | linear-Gaussian systems, history-window latent, C, D and the mixture M\* | R3 formally, R1 after diagnosis: population theory predicted every trained gain to the third decimal; M\* matches the better of C and D but beats C nowhere |
 | next: e03 | Hénon with observation noise and a learned latent | does M\* gain where bootstrapped targets have the advantage? |
 
-Stage 1 derivations and their numerical checks are in `theory/stage1_ar1`.
+Every statement of the theory has a numerical check in `theory/`; its README is the map of the theory (assumptions, results, checks, experiments that test them).
 
 ## Project structure
 
@@ -39,9 +39,8 @@ Anchor/
 │   ├── e01_v0/              # each experiment: README, scripts, results/ (models/ not in git)
 │   ├── e01b_corrected/
 │   ├── e02_lgssm/           # design.py, predictions.py (before training), run.py, evaluate.py
-│   ├── shelved/             # designed but not run
-│   └── archive/pre_v0/      # frozen pipeline from before e01
-├── theory/stage1_ar1/       # numerical checks of the AR(1) derivations
+│   └── archive/             # pre_v0 (frozen pipeline before e01), limited_horizon (designed, not run)
+├── theory/                  # one numerical check per statement of the theory; README.md is the map
 ├── paper/                   # LaTeX draft (Tectonic), synced to Overleaf later
 ├── tests/                   # losses, metrics, invariants, LG-SSM and linear theory, tracking
 ├── Makefile

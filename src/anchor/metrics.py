@@ -1,3 +1,13 @@
+"""
+Evaluation of the F(z, k) family on Hénon windows (e01, e01b): MSE and
+median errors of the direct and rollout paths per horizon, the
+nearest-neighbour estimate of the conditional mean (the floor), sharpness,
+distance to the attractor, the t-interval for 5 seeds with which e01 and
+e01b were reported, and a JSON helper. direct_mse and rollout_mse here
+evaluate networks on windows; those in linear.py evaluate a linear model in
+the population. New experiments use stats.py for intervals.
+"""
+
 import numpy as np
 import torch
 from torch import nn

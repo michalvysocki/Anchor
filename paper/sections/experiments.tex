@@ -1,13 +1,41 @@
 \section{Experiments}
 \label{sec:experiments}
-% Intent: each experiment tests a stated theorem or prediction; protocol
-% (pre-registration, disjoint selection and evaluation seeds, equivalence tests)
-% described once.
+% Intent: each experiment tests stated theory or a stated prediction. Every
+% design was pre-registered (hypotheses, decision criteria, predictions)
+% before training; details in Appendix~\ref{app:details}.
 
-\todo{Protocol: pre-registered designs, selection seeds disjoint from evaluation seeds, paired differences with 95\% intervals, harmlessness as an equivalence test.}
+\paragraph{Protocol.}
+Every experiment was pre-registered before training, with hypotheses, decision criteria, a design review and smoke tests; where the theory allows, numerical predictions were recorded before the training code existed. The regularization weight $\lambda$ is selected on seeds disjoint from the evaluation seeds. Comparisons are paired by seed (log ratio of the error to the one-step baseline with 95\% $t$-intervals), and harm is judged by non-inferiority with a margin of 2\% in MSE.
 
-\todo{Motivating example (Hénon, e01b): a fixed $\lambda$ cannot serve both regimes; ungrounded composition does not detect the gap; the bootstrap residual does.}
+\subsection{Motivation: a fixed weight on chaotic dynamics}
+\label{sec:exp-henon}
+On the Hénon map observed either fully, $(x_{t-1}, x_t)$, or partially, $x_t$ only (no latent; the model acts on observations), a short-horizon ($k \le 4$) Monte Carlo (C) or bootstrapped (D) term at small $\lambda$ leaves a near-exact one-step model intact, but improves the partially observed rollout by at most 2\%. On validation data, larger $\lambda$ improves the partially observed case (D: $-18\%$ at $\lambda = 1$) while multiplying the error of the fully observed model by 75, and D beats C at every $\lambda$ on these chaotic dynamics. \todo{One sentence on the cause of the harm once e03 separates approximation error amplified by chaos from non-convergence through chaotic rollouts.}
 
-\todo{Linear-Gaussian systems (e02): disagreement vs $\kappa$, Kalman optimum, C vs D on stable dynamics, fixed vs oracle vs adaptive $\lambda$.}
+\subsection{Linear-Gaussian systems: the theory predicts training}
+\label{sec:exp-lgssm}
 
-\todo{Nonlinear learned latent (e03), actions (e04), benchmark (e05).}
+\paragraph{Setup.}
+Scalar AR(1) states with $a \in \{0.5, 0.9, 0.99\}$ and a damped oscillating AR(2) are observed with noise of signal fraction $\kappa \in \{1, 0.8, 0.5\}$. The latent is the window of the last $L \in \{1, 2, 4, 8\}$ observations, a fixed linear history encoder that is Markov only without noise and when $L$ covers the AR order (15 of 48 configurations); elsewhere the Markov gap shrinks as $L$ grows. The one-step model is linear, $\hat y_{t+1} = \theta^\top \z{t}$, and the auxiliary horizons are $\mathcal K = \{3, 4\}$. We train one-step, C, D, the uniform mixture M and M\textsuperscript{*} with $\lambda \in \{0.01, 0.1, 1, 10\}$ and 30 evaluation seeds, each with its own training set of about $10^5$ windows (large arm) or $10^3$ windows (small arm, 12 configurations). Because the covariance of the observations is known, every loss is a quadratic form in it: we compute the stop-gradient fixed point of each variant exactly (\emph{population predictions}, recorded before training) and evaluate every trained model exactly, without a test sample.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/e02_theory_vs_training.pdf}
+  \caption{Linear-Gaussian systems, large data arm. (a) Change of the rollout MSE ($k = 1..10$) relative to the one-step model: trained models (mean and 95\% interval over 30 seeds, $\lambda$ selected on separate seeds) against the population fixed point computed before training, in the 33 configurations with a Markov gap. (b) The critic (Corollary~\ref{cor:critic}) estimated at the trained one-step model tracks the Markov gap; the raw bootstrap residual, which also contains the target variance, does not.}
+  \label{fig:e02}
+\end{figure*}
+
+\paragraph{The theory predicts the training.}
+Trained and predicted changes agree to the third decimal (\cref{fig:e02}a): the largest difference is 0.0015 in log ratio (median $4 \cdot 10^{-5}$), and trained parameters lie at a median distance of 0.006 from the predicted fixed points. C, M and M\textsuperscript{*} improve the rollout, by up to 30\% (C at $a = 0.99$, $\kappa = 0.8$, $L = 1$), in all 12 configurations where the predicted gain is at least 1\%, as T2 (Proposition~\ref{prop:t2-ar1}) predicts in its scalar case; D improves less. For Markov latents, 239 of 240 tests (15 configurations, four variants, four $\lambda$) show no harm beyond the margin. The exception, D at $\lambda = 10$ on the AR(2) with $L = 8$ (+27\%), had not converged in the 3000 training steps: retrained with ten times more steps at $\lambda = 10$, it and 22 of the 23 significant increases there vanish and the models sit at the one-step optimum, as Proposition~\ref{prop:t1} states (the remaining increases, at $\lambda \le 1$, are below 0.14\%).
+
+\paragraph{The critic measures the gap.}
+Across the 33 configurations with a gap, the rank correlation between the critic and the gap is 0.96, against 0.52 for the raw residual (predicted: 0.97 and 0.52); in every Markov configuration the critic is below $10^{-3}$ while the raw residual stays between 0.04 and 0.47 (\cref{fig:e02}b). The raw residual cannot tell a Markov gap from target variance; the critic can.
+
+\paragraph{Stop-gradient, anchor points and the weights.}
+Without stop-gradient, D harms Markov latents (material harm in 26 of 60 tests) and is worse than D in 27 of 33 configurations with a gap. Its trained models match its own population fixed points in 190 of 192 cases; in the remaining two ($a = 0.99$, $\lambda = 10$) training reaches a different and much worse point. Allowing the anchor point $p = 1$ changes nothing ($10^{-6}$), as Remark~\ref{rem:p1} states. M\textsuperscript{*} with weights computed from the true moments differs from M\textsuperscript{*} with estimated weights by $10^{-4}$.
+
+\paragraph{The method.}
+M\textsuperscript{*} never falls behind the better of C and D by more than 0.2\% (33/33 configurations with large data, 7/7 with small data). On these stable linear systems it does not beat C: the variance of the Monte Carlo target is negligible even with $10^3$ windows, so the rule correctly puts its weight on C, and D is the weakest variant everywhere. The advantage of bootstrapped targets is expected where target variance grows quickly with the horizon, as on the chaotic dynamics of \cref{sec:exp-henon}.
+
+\subsection{Nonlinear dynamics with a learned latent}
+\label{sec:exp-latent}
+\todo{e03: Hénon with observation noise and a learned encoder. Does M\textsuperscript{*} move weight to bootstrapped targets and beat C where they have the advantage? Training budget by a convergence criterion for all variants and baselines.}

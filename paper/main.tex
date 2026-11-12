@@ -1,27 +1,50 @@
-% Placeholder preamble: replace the document class and style with the ICML 2027
-% template when it is published (see README.md).
-\documentclass[10pt]{article}
-\usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,amsthm}
+% ICML 2026 template, standing in for ICML 2027 until its kit is published
+% (style files from https://media.icml.cc/Conferences/ICML2026/Styles/icml2026.zip).
+% Submission mode: authors are hidden; use \usepackage[accepted]{icml2026} for
+% the camera-ready version.
+\documentclass{article}
+% Tectonic runs XeTeX; T1 encoding makes it use the Times (ptm) fonts of the
+% ICML style instead of silently substituting Latin Modern
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{xcolor}
-\usepackage[numbers]{natbib}
 \usepackage{hyperref}
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+\usepackage{icml2026}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage[capitalize,noabbrev]{cleveref}
 
-\newtheorem{theorem}{Theorem}
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
 \newtheorem{proposition}[theorem]{Proposition}
 \newtheorem{lemma}[theorem]{Lemma}
 \newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{remark}
 \newtheorem{remark}[theorem]{Remark}
 
 \input{macros}
 
-\title{Anchor Your World Model in Reality}
-\author{Michał Wysocki \and \todo{supervisor, second author}}
+\icmltitlerunning{Anchor Your World Model in Reality}
 
 \begin{document}
-\maketitle
+
+\twocolumn[
+  \icmltitle{Anchor Your World Model in Reality}
+  \begin{icmlauthorlist}
+    \icmlauthor{Michał Wysocki}{uni}
+    \icmlauthor{\todo{supervisor}}{uni}
+  \end{icmlauthorlist}
+  \icmlaffiliation{uni}{\todo{department, university, city, country}}
+  \icmlcorrespondingauthor{Michał Wysocki}{\todo{university email}}
+  \icmlkeywords{World Models, Model-Based Reinforcement Learning, Self-Predictive Representations}
+  \vskip 0.3in
+]
+
+\printAffiliationsAndNotice{}
 
 \input{sections/abstract}
 \input{sections/introduction}
@@ -32,10 +55,15 @@
 \input{sections/related_work}
 \input{sections/conclusion}
 
-\bibliographystyle{plainnat}
-\bibliography{references}
+\section*{Impact Statement}
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here.
 
+\bibliography{references}
+\bibliographystyle{icml2026}
+
+\newpage
 \appendix
+\onecolumn
 \input{sections/appendix}
 
 \end{document}

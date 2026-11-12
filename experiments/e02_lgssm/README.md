@@ -231,7 +231,7 @@ Fraction of the onestep → direct gap closed (15 gap configurations):
 D is the weakest variant in every configuration of both arms. No configuration of e02 shows an advantage of bootstrapped targets.
 
 **Secondary ablations:**
-- **D_nosg** (no stop-gradient): material harm in 26 of 60 Markov tests in the large arm and 10 of 20 in the small arm; worse than D in 27 of 33 large-arm gap configurations and 5 of 7 small-arm ones. This is as predicted (smoke runs matched the predicted log ratios to the third digit).
+- **D_nosg** (no stop-gradient): material harm in 26 of 60 Markov tests in the large arm and 10 of 20 in the small arm; worse than D in 27 of 33 large-arm gap configurations and 5 of 7 small-arm ones. This is as predicted: the trained models match the population fixed points of D_nosg within 0.01 in 190 of 192 large-arm cases. In the remaining two ($a = 0.99$, κ = 1, $L = 1$ and $L = 2$, λ = 10) training reaches a different and much worse point (log ratio about +2.2, i.e. roughly nine times the MSE, against +0.04 and +0.07 predicted); found while writing the paper section, 2026-11-12.
 - **M\*_oracle:** within $10^{-4}$ of M\*; better in 3 of 33 and 4 of 7 configurations by tiny amounts. The weights are well estimated.
 - **M\*_p1:** within $10^{-6}$ of M\* on average. The anchor point $p = 1$ adds nothing.
 

@@ -11,3 +11,6 @@ logs/
 
 # offline W&B runs, synced with `wandb sync`
 wandb/
+
+# editor settings are per machine
+.vscode/

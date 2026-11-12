@@ -2,6 +2,8 @@
 
 Status: done 2026-11-11 (started 2026-11-10). Decision criteria below were written before any test-set result was seen.
 
+> **Superseded by `../e01b_corrected/`** (2026-11-12). The result of Q1 stands. The design of Q2 had errors (auxiliary horizons beyond the predictable range, unbalanced gradients), described in the addendum and corrected in e01b. This record is not modified.
+
 Code: `src/train_variants.py`, `src/anchor_loss.py`, `src/evaluate_variants.py`, at the commit that sets `N_STEPS = 40000` (on top of `01d753d`).
 
 Since the repository restructuring (after `adfffcd`), the same code lives in the `anchor` package (`src/anchor/`) and in `train.py`, `evaluate.py` and `bayes_floor.py` in this directory, with results in `results/` and checkpoints in `models/` here. The restructured code reproduces e01 exactly: three reference training runs (A, D, E, 1 000 steps) give bit-identical weights, and re-running `evaluate.py` and `bayes_floor.py` gives bit-identical `test_results.json` and `bayes_floor_insufficient.json`.

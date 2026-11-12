@@ -1,3 +1,10 @@
+"""
+Hénon map (a = 1.4, b = 0.3): one step, rollouts, rejection of unstable
+trajectories, observation modes (sufficient: (x_{t-1}, x_t), insufficient:
+x_t), windows of trajectories and a sample of the attractor. Used by e01,
+e01b and, with a learned latent, e03.
+"""
+
 from itertools import pairwise
 
 import numpy as np

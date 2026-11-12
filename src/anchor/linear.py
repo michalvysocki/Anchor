@@ -8,7 +8,9 @@ linear function of the stacked vector Y = (y_{t-L+1}, ..., y_{t+K}), so
 every expected squared error is a quadratic form in the covariance of Y.
 This gives the population losses and their stop-gradient fixed points
 exactly, without sampling; the same functions on sampled windows give the
-training losses.
+training losses. one_step_loss, multistep_loss, rollout_mse and direct_mse
+here are these population quantities; the functions of the same name in
+losses.py and metrics.py belong to the F(z, k) networks of e01 and e01b.
 """
 
 import numpy as np
@@ -110,9 +112,6 @@ def bootstrap_loss(
     ]
 
     return torch.stack(terms).sum()
-
-
-AUX_LOSSES = {"onestep": None, "C": multistep_loss, "D": bootstrap_loss}
 
 
 def anchor_points(k: int, first: int = 2) -> list[int]:

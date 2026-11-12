@@ -14,16 +14,16 @@ Code: `run_limited_horizon.py` (training stages, settings, selection) and `evalu
 Run from the repository root, one terminal per family:
 
 ```
-uv run python experiments/shelved/limited_horizon/run_limited_horizon.py check --family onestep
-uv run python experiments/shelved/limited_horizon/run_limited_horizon.py baseline --family onestep
-uv run python experiments/shelved/limited_horizon/run_limited_horizon.py sweep --family onestep
-uv run python experiments/shelved/limited_horizon/run_limited_horizon.py final --family onestep
+uv run python experiments/archive/limited_horizon/run_limited_horizon.py check --family onestep
+uv run python experiments/archive/limited_horizon/run_limited_horizon.py baseline --family onestep
+uv run python experiments/archive/limited_horizon/run_limited_horizon.py sweep --family onestep
+uv run python experiments/archive/limited_horizon/run_limited_horizon.py final --family onestep
 
-uv run python experiments/shelved/limited_horizon/run_limited_horizon.py check --family direct --device mps
-uv run python experiments/shelved/limited_horizon/run_limited_horizon.py sweep --family direct --device mps
-uv run python experiments/shelved/limited_horizon/run_limited_horizon.py final --family direct --device mps
+uv run python experiments/archive/limited_horizon/run_limited_horizon.py check --family direct --device mps
+uv run python experiments/archive/limited_horizon/run_limited_horizon.py sweep --family direct --device mps
+uv run python experiments/archive/limited_horizon/run_limited_horizon.py final --family direct --device mps
 
-uv run python experiments/shelved/limited_horizon/evaluate_limited_horizon.py
+uv run python experiments/archive/limited_horizon/evaluate_limited_horizon.py
 ```
 
 ## Motivation

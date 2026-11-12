@@ -1,3 +1,9 @@
+"""
+Horizon-conditioned predictor F(z, k) of e01 and e01b: one MLP that takes a
+point and a one-hot horizon, used both for direct prediction F(z, k) and,
+through UnitStep, as the one-step model of a rollout F(., 1)^k.
+"""
+
 import torch
 from torch import nn
 

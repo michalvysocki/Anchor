@@ -1,3 +1,9 @@
+"""
+Settings of the Hénon experiments (e01, e01b; e03 will reuse the data
+seeds): separate data generators per split, the training seeds, the window
+length K_MAX and the burn-in of the trajectories.
+"""
+
 from typing import Literal
 
 ObservabilityMode = Literal["insufficient", "sufficient"]

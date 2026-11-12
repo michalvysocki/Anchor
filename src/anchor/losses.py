@@ -1,3 +1,11 @@
+"""
+Losses of the F(z, k) family (e01, e01b): grounding of the direct path,
+the one-step loss, the multi-step loss C, and the Anchor variants A, B, D
+and E with random decompositions k = p + q. The functions of the same name
+in linear.py are the population losses of the linear window model (e02),
+not these.
+"""
+
 import torch
 from torch import nn
 

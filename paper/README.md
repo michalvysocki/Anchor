@@ -2,7 +2,7 @@
 
 Working title: *Anchor Your World Model in Reality*. Target: ICML 2027 (deadline to be checked when announced); fallback ECML-PKDD.
 
-- `main.tex` — placeholder preamble (`article`); replace with the ICML 2027 style files when the template is published.
+- `main.tex` — ICML 2026 template in submission mode (authors hidden), standing in for ICML 2027 until its kit is published. Style files `icml2026.sty`, `icml2026.bst`, `fancyhdr.sty`, `algorithm.sty`, `algorithmic.sty` are copied unchanged from the official kit (https://media.icml.cc/Conferences/ICML2026/Styles/icml2026.zip, downloaded 2026-11-12). Limits: 8 pages of main text for submission (9 camera-ready); references, impact statement and appendix do not count. `\usepackage[T1]{fontenc}` makes Tectonic (XeTeX) use the template's Times fonts.
 - `sections/` — one file per section. Each starts with a comment stating what the section must show; `\todo{}` (red) marks unwritten text and claims that are still hypotheses.
 - `macros.tex` — shared notation.
 - `references.bib` — every entry marked `TODO verify` must be checked against the published version before submission.

@@ -1,23 +1,38 @@
 \section{Anchor}
 \label{sec:method}
-% Intent: define the family of targets, the disagreement and the loss, so that
-% Section 4 can state properties of exactly this object.
+% Intent: define the family of targets and the loss exactly, so that
+% Section~\ref{sec:theory} states properties of this object and
+% Section~\ref{sec:experiments} tests them.
 
-\paragraph{A family of multi-step targets.}
-For a horizon $k = p + q$, the target with bootstrap point $p$ is
-\begin{equation}
-  \Tp = g^{q}\big(\varphi(y_{\le t+p})\big), \qquad p = 0, \dots, k.
-\end{equation}
-\todo{$p = k$: Monte Carlo (encoded true future, as in TD-MPC and SPR); $0 < p < k$: bootstrapped (TD networks); a learned head as the amortized bootstrapped target.}
+\paragraph{Setting.}
+An encoder maps the history of observations to a latent $\z{t} = \varphi(y_{\le t})$, and a one-step model $g$ predicts $\z{t+1}$ from $\z{t}$; the $k$-step prediction is the rollout $g^{k}(\z{t})$. The one-step model is trained with $\Lone = \E\|g(\z{t}) - \sg[\z{t+1}]\|^2$ (or its decoded counterpart in observation space), and Anchor adds a multi-step term for a small set of horizons $\mathcal K$.
 
-\paragraph{Path disagreement.}
+\paragraph{A family of targets anchored in real observations.}
+For a horizon $k$ and an \emph{anchor point} $p \in \{2, \dots, k\}$, the target is the model's own rollout started from the encoded observation at time $t + p$:
 \begin{equation}
-  \gap_{p,q}(\z{t}) = \E\big[\E[y_{t+k} \mid \z{t+p}] \mid \z{t}\big] - \E[y_{t+k} \mid \z{t}].
+  T_{k,p} =
+  \begin{cases}
+    g^{k-p}(\z{t+p}), & p < k, \\
+    \z{t+k}, & p = k .
+  \end{cases}
 \end{equation}
-\todo{Zero for a Markov latent; observable without the state; how it is estimated (open: separating it from target variance).}
+The endpoint $p = k$ is the encoded true future, the Monte Carlo target of latent consistency losses such as SPR and TD-MPC; we call it C. Anchor points $p < k$ give bootstrapped targets, as in temporal-difference networks (D). Every target starts from a real observation; none is a composition of the model's own predictions from $\z{t}$ alone. The anchor point $p = 1$ is excluded: at the one-step optimum it carries no signal (Remark~\ref{rem:p1}).
 
-\paragraph{The Anchor loss.}
+\paragraph{The loss.}
+With weights $w_{k} = (w_{k,p})_{p=2}^{k}$ on the probability simplex,
 \begin{equation}
-  \Lanchor = \Lone + \lambda \sum_{p \ge 2} w_p \, \big\| g^{k}(\z{t}) - \sg[\Tp] \big\|^2 .
+  \Lanchor = \Lone + \lambda \, \E_{k \in \mathcal K} \Big\| g^{k}(\z{t}) - \sg\Big[ \sum_{p=2}^{k} w_{k,p} \, T_{k,p} \Big] \Big\|^2 .
+  \label{eq:anchor}
 \end{equation}
-A fixed $\lambda$ suffices: the gradient of the Anchor term vanishes when the latent is Markov (Proposition~\ref{prop:t1}), and bootstrap points $p = 1$ carry no signal at the one-step optimum (Remark~\ref{rem:p1}). \todo{Weights $w_p$ from T3; grounding through the one-step loss and real-observation targets; stop-gradient; adaptive $\lambda$ only if experiments show harm where Proposition~\ref{prop:t1} does not apply.}
+The mixture of targets plays the role of the $\lambda$-return in TD($\lambda$): $w_{k,k} = 1$ recovers C, weight on $p < k$ gives D, and equal weights give the uniform mixture M. The stop-gradient on the target is not a heuristic: without it the one-step optimum of a Markov latent is no longer a fixed point (Proposition~\ref{prop:t1} and the ablation D\_nosg in Section~\ref{sec:experiments}).
+
+\paragraph{Bias--variance weights (M\textsuperscript{*}).}
+The targets differ in bias and variance. Given $\z{t}$, $T_{k,k}$ is unbiased for $\E[\z{t+k} \mid \z{t}]$ but carries all the randomness of the next $k$ steps; $T_{k,p}$ with $p < k$ removes the randomness of the last $k - p$ steps but inherits the rollout bias of the model at horizon $p$ (Lemma~\ref{lem:residual}). Both quantities can be estimated with \emph{critics}: regressions $h_{k,p}(\z{t}) \approx \E[T_{k,p} \mid \z{t}]$. The bias of $T_{k,p}$ is $h_{k,p} - h_{k,k}$ and its variance is the residual of $h_{k,p}$ (Corollary~\ref{cor:critic}). Anchor chooses
+\begin{equation}
+  w_{k} = \argmin_{w \in \Delta} \; w^\top \big(B_k + V_k / N\big) \, w,
+  \label{eq:weights}
+\end{equation}
+where $(B_k)_{pp'} = \E[(h_{k,p} - h_{k,k})(h_{k,p'} - h_{k,k})]$, $(V_k)_{pp'}$ is the covariance of the critics' residuals, and $N$ is the number of training windows. The weights are recomputed periodically and kept under stop-gradient. Because C has zero bias, the rule recovers C as $N \to \infty$; with little data, or when the target variance grows quickly with the horizon, it moves weight to bootstrapped targets.
+
+\paragraph{Cost.}
+Anchor adds no parameters to the world model. M\textsuperscript{*} needs the critics only during training: for a linear model they are least-squares regressions on second moments of the data; for neural models they are small heads trained alongside the model \todo{e03}. Rolling out to the largest horizon in $\mathcal K$ costs $\max \mathcal K$ applications of $g$ per window.

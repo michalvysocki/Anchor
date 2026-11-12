@@ -12,7 +12,7 @@ format:
 	uv run ruff format .
 
 theory:
-	uv run python theory/stage1_ar1/verify.py
+	uv run python theory/check_all.py
 
 paper:
 	cd paper && tectonic -X compile --synctex --keep-logs main.tex

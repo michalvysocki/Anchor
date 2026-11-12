@@ -1,3 +1,10 @@
+"""
+Training loop of the F(z, k) family (e01, e01b): training constants, the
+catalogue of variants (family, auxiliary loss, selection path), run names
+and train_variant, which trains one variant and keeps the best checkpoint
+of each path.
+"""
+
 from pathlib import Path
 
 import numpy as np
@@ -112,8 +119,9 @@ def train_variant(
         n_steps (int): number of optimization steps
         max_horizon (int | None): largest horizon of the auxiliary loss,
             K_MAX if None. Supported by variants C, D and E.
-        select_metric (str): "mse" (e01) or "median", the validation
-            statistic used to select checkpoints
+        select_metric (str): "mse" (e01, e01b) or "median" (only the
+            archived limited-horizon experiment), the validation statistic
+            used to select checkpoints
         val_horizon (int | None): with "mse", evaluate validation over
             horizons 1..val_horizon only; all horizons if None (e01)
         log_grads (bool): print the gradient norms of the base and the

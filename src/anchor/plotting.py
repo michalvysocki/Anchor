@@ -1,3 +1,5 @@
+"""Fixed plotting colors shared by the experiments."""
+
 # fixed categorical order, one color per variant on every plot
 VARIANT_COLORS = {
     "direct": "#2a78d6",
