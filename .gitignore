@@ -8,3 +8,6 @@ __pycache__/
 # checkpoints live next to their experiment and are reproducible
 *.pt
 logs/
+
+# offline W&B runs, synced with `wandb sync`
+wandb/

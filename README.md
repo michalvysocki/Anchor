@@ -46,12 +46,18 @@ uv sync
 Experiment scripts can be run from any directory:
 
 ```bash
-uv run python experiments/e01_v0/train.py baseline --family onestep
-uv run python experiments/e01_v0/evaluate.py
-uv run pytest
+uv run python -u experiments/e01b_corrected/run.py baseline --family onestep | tee logs/e01b_onestep.log
+uv run python experiments/e01b_corrected/evaluate.py
+make test
 ```
 
-Each experiment's README lists the full sequence of commands.
+Use `python -u` for long runs piped to `tee`, otherwise the output is buffered and the log stays empty until the end. Each experiment's README lists the full sequence of commands as they were run.
+
+Common tasks are in the `Makefile`: `make test`, `make lint`, `make format`, `make theory` (numerical checks of the derivations), `make paper` (build `paper/main.pdf` with Tectonic).
+
+## Run tracking
+
+Every training run writes `results/{run}.json` (config, results and metadata: git commit and whether the tree was dirty, device, host, versions, start time, duration) and `results/{run}.curve.jsonl` (training curve). Local files are the source of truth; Weights & Biases can mirror them: install the optional extra with `uv sync --extra tracking`, pass `use_wandb=True` to `train_variant`; runs are offline unless `WANDB_MODE` says otherwise and land in the experiment's `wandb/` directory (ignored by git), to be uploaded with `wandb login` and `wandb sync <experiment>/wandb/offline-run-*`. e01b predates run tracking; its curves were recovered from the training logs by `experiments/e01b_corrected/backfill_curves.py`.
 
 ## Reproducibility
 

@@ -95,6 +95,8 @@ class RunLogger:
                 group=group,
                 name=name,
                 config={**config, **self.metadata},
+                # offline runs go next to the experiment's results, not the cwd
+                dir=self.results_dir.parent,
                 reinit=True,
             )
 

@@ -10,6 +10,11 @@ dependencies = [
     "torch==2.8.0",
 ]
 
+[project.optional-dependencies]
+tracking = [
+    "wandb>=0.31.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8",
