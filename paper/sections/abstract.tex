@@ -1,0 +1,8 @@
+\begin{abstract}
+% Four sentences: problem, gap, what we do, what we show. Claims marked
+% \todo are hypotheses until the experiments and proofs are done.
+Latent world models are trained to predict one step ahead and rolled out recursively, so a latent that does not summarize the history makes long-horizon predictions drift.
+Multi-step consistency losses used in practice compare the rollout with the encoded true future, a Monte Carlo target whose variance grows with the horizon, and they apply the same pressure whether or not the latent is Markov.
+We propose Anchor, an auxiliary loss without extra parameters that pulls the rollout toward a bootstrapped target started from a later real observation, with a strength set by the disagreement between predictive paths, a measure of the Markov gap of the latent.
+\todo{We prove that the short-horizon disagreement bounds the bias of long rollouts in linear-Gaussian systems, and show that Anchor improves rollouts under partial observability while switching itself off when the latent is sufficient.}
+\end{abstract}

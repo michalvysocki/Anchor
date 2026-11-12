@@ -1,0 +1,16 @@
+\section{Theory}
+\label{sec:theory}
+% Intent: properties of the method, each with a numerical check
+% (theory/ in the repository). Proofs in the appendix.
+
+\todo{T1 Harmlessness: for a Markov latent and an exact model the optimum of the one-step loss is a fixed point of $\Lanchor$.}
+
+\todo{T2 Anchor under a Markov gap: fixed point of $\Lanchor$ with $\lambda(\gap)$ for a linear $g$; gain over the one-step model and cost at short horizons.}
+
+\todo{T3 Bootstrap vs Monte Carlo: $\Var[\Tp]$ decreases with $p$; bias--variance trade-off and the weights $w_p$. AR(1): $\Var[C] = \sigma^2 \sum_{j<k} a^{2j}$, $\Var[D] = \sigma^2 \sum_{q \le j < k} a^{2j}$.}
+
+\todo{T4 Disagreement controls rollout bias: AR(1) bound $|a^k \kappa (1 - \kappa^{k-1})| \le (k-1) |a|^{k-2} \, |a^2 \kappa (1 - \kappa)|$; matrix version by telescoping; estimator of $\gap$ separated from variance.}
+
+\todo{T5 No collapse: a constant latent has zero disagreement; conditions under which grounding and stop-gradient exclude it.}
+
+\todo{Remark on actions: the tower property holds when the data policy depends only on the latent; otherwise targets are confounded.}

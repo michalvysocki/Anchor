@@ -178,3 +178,21 @@ Written by the user, 2026-11-12.
 1. Path consistency with short auxiliary horizons and a small λ is not inherently destructive: C and D leave the near-exact one-step model intact in the well-specified case, which confirms that the failure of e01 came from its configuration. A gain in the misspecified case exists, but only at λ values that harm the well-specified case; at admissible λ it is negligible (C +0.5%, D −2.3%). D beating C at every λ is consistent with a bias–variance trade-off of Monte Carlo targets on chaotic dynamics; this is a prediction for e02, not a result of e01b. E's gain, together with the worse direct path and the uniformly damped rollout, argues against sharing one model between the direct head and the dynamics.
 2. No fixed λ serves both observability regimes, which argues for an adaptive Anchor whose strength depends on the regime (λ(Δ)).
 3. Carried to e02: short horizons and a gradient-scale check; the prediction C ≥ D on a stable linear system; equivalence tested on log-MSE or with an absolute margin; a practical threshold for sharpness verdicts; a separate head or no head instead of a shared model.
+
+## Exploratory analysis (after the conclusion, not pre-registered)
+
+Question: does the path disagreement of the baseline models (λ = 0, evaluation seeds) separate the two observability modes, and does it track how much the rollout loses to the direct prediction? Script `explore_disagreement.py`, output `results/explore_disagreement.json`, run 2026-11-12. All measures are on the test windows at k = 2..4, averaged over the splits k = p + q and divided by the variance of the true point at horizon k (mean ± 95% t-interval over 5 seeds).
+
+| measure | k | insufficient | sufficient | ratio |
+|---|---|---|---|---|
+| bootstrap residual of the one-step model, $\|g^k(z_t) - g^q(z_{t+p})\|^2$ (D loss) | 2 / 4 | 0.31 / 0.98 | 1.4·10⁻⁶ / 1.4·10⁻⁵ | 2·10⁵ / 7·10⁴ |
+| direct vs rollout, $\|F(z_t,k) - g^k(z_t)\|^2$ | 2 / 4 | 0.12 / 0.73 | 0.005 / 0.009 | 25 / 80 |
+| rollout gap, MSE of $g^k$ minus MSE of $F$ | 2 / 4 | +0.11 / +0.65 | −0.005 / −0.009 | — |
+| composition of the direct model, $\|F(F(z_t,p),q) - F(z_t,k)\|^2$ (A loss) | 2 / 4 | 0.12 / 0.50 | 0.13 / 0.15 | 1.0 / 3.4 |
+
+Observations:
+
+- The bootstrap residual, which needs only the user's one-step model and the data, separates the modes by 4–5 orders of magnitude. Caveat: it is the D loss, i.e. the variance of the target plus the squared Markov-gap bias. Hénon has no process noise, so in the sufficient mode the variance part is zero; with process noise the residual stays positive for a Markov latent, and the bias part (the disagreement Δ of the theory) has to be separated from it. This separation is the open part of T4.
+- The direct-vs-rollout disagreement has almost the magnitude of the rollout gap (0.12 vs 0.11, 0.55 vs 0.50, 0.73 vs 0.65), but not its sign: in the sufficient mode the rollout is the better path. This is largely mechanical: when one predictor is near-optimal, the squared disagreement approximates the excess error of the other.
+- The composition inconsistency of the direct model does not separate the modes at k = 2 (0.12 vs 0.13). Self-consistency without grounding in a later observation does not measure the Markov gap; it reflects the direct model's own error. This supports A as the ablation of grounding.
+- Limitation: the two modes are extreme (an exact Markov state without noise vs a strongly non-Markov observation). Whether the disagreement tracks the size of the gap in between is a question for e02, where κ can be varied continuously.

@@ -1,0 +1,15 @@
+\section{Related Work}
+\label{sec:related}
+% Intent: position against four lines; say what is not new.
+
+\paragraph{Bootstrapped predictions.}
+Temporal-difference networks learn predictions from other predictions at a later time \citep{sutton2004tdnetworks, tanner2005tdlambda}; they are the origin of bootstrapped multi-step targets. \todo{What differs: latent world models, Markov-gap measurement, adaptive strength.}
+
+\paragraph{Self-predictive representations.}
+\todo{\citet{tang2023selfpredictive}: one-step latent self-prediction, stop-gradient prevents collapse. \citet{ni2024bridging}: self-prediction makes the latent sufficient, also for histories; multi-step prediction left without theory. SPR \citep{schwarzer2021spr}, TD-MPC \citep{hansen2022tdmpc, hansen2024tdmpc2}: latent consistency with encoded true futures (Monte Carlo targets).}
+
+\paragraph{Partial observability and the $\lambda$-discrepancy.}
+\todo{\citet{allen2024lambda}: the difference between TD($\lambda$) value estimates detects non-Markov observations; we extend the idea from values to world-model state prediction. Adaptive $\lambda$ for values: \citet{white2016greedy, mann2016adaptive}.}
+
+\paragraph{Multi-step and direct prediction.}
+\todo{Multi-step losses under noise \citep{benechehab2024multistep}; single- vs multi-step efficiency \citep{somalwar_statistical}; jumpy world models \citep{farebrother2026jumpy}; semigroup consistency. Not new here: compounding error, direct multi-step prediction, horizon-conditioned predictors, semigroup consistency itself.}

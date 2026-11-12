@@ -1,0 +1,20 @@
+\section{Introduction}
+\label{sec:intro}
+% Intent: convince the reader that compounding error comes from the Markov gap,
+% that existing multi-step losses ignore it, and that a cheap signal detects it.
+
+\todo{Paragraph 1: world models are rolled out recursively; compounding error; why it matters for planning.}
+
+\todo{Paragraph 2: the Markov gap. With a non-Markov latent the one-step rollout shrinks toward the mean at every step (AR(1): ratio $\kappa^{k-1}$ to the optimum). Direct prediction wins under misspecification \citep{somalwar_statistical}, but it is not a world model one can roll out.}
+
+\todo{Paragraph 3: multi-step consistency losses (TD-MPC, SPR) use Monte Carlo targets; a fixed weight cannot serve both regimes (motivating Hénon figure: e01b, a fixed $\lambda$ that helps in the non-Markov case breaks the near-exact model).}
+
+\todo{Paragraph 4: our idea. Bootstrapped targets from later real observations (TD networks); the disagreement between paths measures the Markov gap; Anchor uses it to set its own strength.}
+
+Contributions:
+\begin{itemize}
+  \item \todo{One family of multi-step targets from Monte Carlo to bootstrapped, with their bias and variance (Section~\ref{sec:theory}).}
+  \item \todo{Path disagreement as a measure of the Markov gap for world-model state prediction, and a bound of long-horizon rollout bias by short-horizon disagreement.}
+  \item \todo{Anchor: a plug-in loss with adaptive strength; harmless when the latent is Markov.}
+  \item \todo{Experiments from linear-Gaussian systems to chaotic and controlled dynamics.}
+\end{itemize}

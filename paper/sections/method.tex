@@ -1,0 +1,23 @@
+\section{Anchor}
+\label{sec:method}
+% Intent: define the family of targets, the disagreement and the loss, so that
+% Section 4 can state properties of exactly this object.
+
+\paragraph{A family of multi-step targets.}
+For a horizon $k = p + q$, the target with bootstrap point $p$ is
+\begin{equation}
+  \Tp = g^{q}\big(\varphi(y_{\le t+p})\big), \qquad p = 0, \dots, k.
+\end{equation}
+\todo{$p = k$: Monte Carlo (encoded true future, as in TD-MPC and SPR); $0 < p < k$: bootstrapped (TD networks); a learned head as the amortized bootstrapped target.}
+
+\paragraph{Path disagreement.}
+\begin{equation}
+  \gap_{p,q}(\z{t}) = \E\big[\E[y_{t+k} \mid \z{t+p}] \mid \z{t}\big] - \E[y_{t+k} \mid \z{t}].
+\end{equation}
+\todo{Zero for a Markov latent; observable without the state; how it is estimated (open: separating it from target variance).}
+
+\paragraph{The Anchor loss.}
+\begin{equation}
+  \Lanchor = \Lone + \lambda(\gap) \sum_{p} w_p \, \big\| g^{k}(\z{t}) - \sg[\Tp] \big\|^2 .
+\end{equation}
+\todo{Weights $w_p$ and the rule $\lambda(\gap)$ from Section~\ref{sec:theory}; grounding through the one-step loss and real-observation targets; stop-gradient.}
