@@ -165,13 +165,21 @@ def test_unit_rollout_loss_is_zero_for_consistent_model():
 
 
 @pytest.mark.parametrize(
-    "loss_fn", [multistep_loss, anchor_loss_rollout, anchor_loss_unit_rollout]
+    "loss_fn",
+    [
+        anchor_loss_composed,
+        anchor_loss_bootstrapped,
+        multistep_loss,
+        anchor_loss_rollout,
+        anchor_loss_unit_rollout,
+    ],
 )
 def test_default_horizon_is_k_max(loss_fn):
     torch.manual_seed(0)
     windows = torch.randn(64, K_MAX + 1, 1)
     model = HorizonMLP(K_MAX, 1, 16)
-    aux_model = model if loss_fn is anchor_loss_unit_rollout else UnitStep(model, K_MAX)
+    one_step_family = loss_fn in (multistep_loss, anchor_loss_rollout)
+    aux_model = UnitStep(model, K_MAX) if one_step_family else model
 
     default = loss_fn(aux_model, windows, torch.Generator().manual_seed(0))
     explicit = loss_fn(
@@ -201,6 +209,20 @@ def test_max_horizon_two_gives_two_step_losses():
     assert torch.allclose(
         anchor_loss_unit_rollout(model, windows, g, max_horizon=2),
         mse(rolled, predict(model, windows[:, 0], two, K_MAX)),
+    )
+    # k = 2 forces p = q = 1
+    one = torch.ones(64, dtype=torch.int64)
+    direct = predict(model, windows[:, 0], two, K_MAX)
+    assert torch.allclose(
+        anchor_loss_composed(model, windows, g, max_horizon=2),
+        mse(
+            predict(model, predict(model, windows[:, 0], one, K_MAX), one, K_MAX),
+            direct,
+        ),
+    )
+    assert torch.allclose(
+        anchor_loss_bootstrapped(model, windows, g, max_horizon=2),
+        mse(direct, predict(model, windows[:, 1], one, K_MAX)),
     )
 
 

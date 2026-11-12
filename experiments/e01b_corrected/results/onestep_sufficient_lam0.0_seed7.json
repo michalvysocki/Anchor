@@ -1,0 +1,1 @@
+{"variant": "onestep", "mode": "sufficient", "lambda": 0.0, "seed": 7, "steps": 40000, "selected_by": "rollout", "max_horizon": null, "select_metric": "mse", "val_horizon": 10, "val_direct": 1.2379076480865479, "best_step_direct": 500, "val_rollout": 0.00024330422456841916, "best_step_rollout": 31000}

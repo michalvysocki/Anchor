@@ -6,6 +6,8 @@ ObservabilityMode = Literal["insufficient", "sufficient"]
 TRAIN_DATA_SEED = 0
 TEST_DATA_SEED = 1
 VAL_DATA_SEED = 2
+# large sample for nearest-neighbour estimates of conditional expectations
+REFERENCE_DATA_SEED = 3
 TRAINING_SEEDS = (0, 1, 2, 3, 4)
 
 K_MAX = 20

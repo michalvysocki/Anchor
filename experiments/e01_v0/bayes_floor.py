@@ -15,49 +15,24 @@ import torch
 from evaluate import load_model
 from train import RESULTS_DIR
 
-from anchor.config import BURN_IN, K_MAX, TEST_DATA_SEED, TRAINING_SEEDS
+from anchor.config import (
+    BURN_IN,
+    K_MAX,
+    REFERENCE_DATA_SEED,
+    TEST_DATA_SEED,
+    TRAINING_SEEDS,
+)
 from anchor.envs.henon import generate_windows
-from anchor.metrics import mean_ci, path_errors
+from anchor.metrics import mean_ci, neighbour_futures, path_errors
 from anchor.training import LEN_TRAJ, N_TRAJ
 
-# not used by train (0), test (1) or validation (2)
-REFERENCE_DATA_SEED = 3
 N_REFERENCE_TRAJ = 200_000
 NEIGHBOURS = (50, 200)
 
 
-def nearest_neighbours(
-    reference_x: np.ndarray, query_x: np.ndarray, n_neighbours: int
-) -> np.ndarray:
-    """
-    Indices of the n nearest reference points of each query point in 1D.
-
-    Args:
-        reference_x (np.ndarray): sorted reference points of size (m,)
-        query_x (np.ndarray): query points of size (n,)
-        n_neighbours (int): number of neighbours
-
-    Returns:
-        np.ndarray: indices into reference_x of size (n, n_neighbours)
-    """
-
-    # the n nearest points of a sorted 1D array lie within n positions of
-    # the insertion point
-    pos = np.searchsorted(reference_x, query_x)
-    offsets = np.arange(-n_neighbours, n_neighbours)
-    candidates = np.clip(pos[:, None] + offsets, 0, len(reference_x) - 1)
-    dist = np.abs(reference_x[candidates] - query_x[:, None])
-    nearest = np.argsort(dist, axis=1)[:, :n_neighbours]
-
-    return np.take_along_axis(candidates, nearest, axis=1)
-
-
 def floor_errors(n_neighbours: int, reference: np.ndarray, test: np.ndarray) -> dict:
     """Median absolute test error per horizon of the conditional mean and median."""
-    order = np.argsort(reference[:, 0])
-    reference = reference[order]
-    idx = nearest_neighbours(reference[:, 0], test[:, 0], n_neighbours)
-    futures = reference[idx][:, :, 1:]  # (n_test, n_neighbours, k_max)
+    futures = neighbour_futures(reference, test[:, 0], n_neighbours)
     truth = test[:, 1:]
 
     return {

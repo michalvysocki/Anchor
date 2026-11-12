@@ -5,7 +5,17 @@ import torch
 from torch import nn
 
 from anchor.config import K_MAX
-from anchor.metrics import off_attractor, path_errors, sharpness
+from anchor.losses import grounding_loss, rollout_error
+from anchor.metrics import (
+    direct_mse,
+    mse_per_horizon,
+    neighbour_futures,
+    off_attractor,
+    path_errors,
+    rollout_mse,
+    sharpness,
+)
+from anchor.models import HorizonMLP, UnitStep
 
 
 class IgnoresHorizon(nn.Module):
@@ -52,3 +62,45 @@ def test_sharpness_is_one_for_truth_and_zero_for_constant():
 
     assert np.allclose(sharpness(truth, windows), 1.0)
     assert np.allclose(sharpness(np.zeros_like(truth), windows), 0.0)
+
+
+def test_path_mse_without_horizon_matches_training_losses():
+    torch.manual_seed(0)
+    windows = torch.randn(32, K_MAX + 1, 2)
+    model = HorizonMLP(K_MAX, 2, 16)
+    unit = UnitStep(model, K_MAX)
+
+    assert torch.allclose(direct_mse(model, windows), grounding_loss(model, windows))
+    assert torch.allclose(rollout_mse(unit, windows), rollout_error(unit, windows))
+
+
+def test_path_mse_with_horizon_uses_only_first_horizons():
+    windows = torch.randn(16, K_MAX + 1, 1)
+    # constant model: the error at horizon k is the distance to the start point
+    expected = ((windows[:, 1:4] - windows[:, :1]) ** 2).mean()
+
+    assert torch.allclose(direct_mse(IgnoresHorizon(), windows, 3), expected)
+    assert torch.allclose(rollout_mse(IgnoresHorizon(), windows, 3), expected)
+
+
+def test_mse_per_horizon_from_euclidean_errors():
+    errors = np.array([[1.0, np.inf], [3.0, 2.0]])
+
+    mse = mse_per_horizon(errors, point_dim=2)
+
+    assert mse[0] == (1 + 9) / 2 / 2
+    assert np.isinf(mse[1])
+
+
+def test_neighbour_futures_are_futures_of_the_closest_starts():
+    # futures are a deterministic function of the start, so the nearest
+    # neighbours of a start that is in the reference return its own future
+    starts = np.linspace(-1, 1, 101)
+    reference = np.stack([starts, 2 * starts, 3 * starts], axis=1)
+    rng = np.random.default_rng(0)
+    reference = reference[rng.permutation(len(reference))]
+
+    futures = neighbour_futures(reference, np.array([0.5, -0.2]), n_neighbours=1)
+
+    assert futures.shape == (2, 1, 2)
+    assert np.allclose(futures[:, 0], [[1.0, 1.5], [-0.4, -0.6]])

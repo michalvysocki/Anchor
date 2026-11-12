@@ -22,7 +22,12 @@ from anchor.losses import (
     one_step_loss,
     rollout_error,
 )
-from anchor.metrics import direct_median_error, rollout_median_error
+from anchor.metrics import (
+    direct_median_error,
+    direct_mse,
+    rollout_median_error,
+    rollout_mse,
+)
 from anchor.models import HorizonMLP, UnitStep
 
 HIDDEN_SIZE = 256
@@ -80,6 +85,7 @@ def train_variant(
     n_steps: int = N_STEPS,
     max_horizon: int | None = None,
     select_metric: str = "mse",
+    val_horizon: int | None = None,
     log_grads: bool = False,
 ) -> float:
     """
@@ -107,6 +113,8 @@ def train_variant(
             K_MAX if None. Supported by variants C, D and E.
         select_metric (str): "mse" (e01) or "median", the validation
             statistic used to select checkpoints
+        val_horizon (int | None): with "mse", evaluate validation over
+            horizons 1..val_horizon only; all horizons if None (e01)
         log_grads (bool): print the gradient norms of the base and the
             weighted auxiliary term every 100 steps
 
@@ -138,7 +146,12 @@ def train_variant(
         base_loss, aux_model = one_step_loss, unit
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     aux_kwargs = {"max_horizon": max_horizon} if max_horizon else {}
-    if select_metric == "mse":
+    if select_metric == "mse" and val_horizon:
+        val_metrics = {
+            "direct": lambda m, w: direct_mse(m, w, val_horizon),
+            "rollout": lambda m, w: rollout_mse(m, w, val_horizon),
+        }
+    elif select_metric == "mse":
         val_metrics = {"direct": grounding_loss, "rollout": rollout_error}
     else:
         val_metrics = {"direct": direct_median_error, "rollout": rollout_median_error}
@@ -201,6 +214,7 @@ def train_variant(
         "selected_by": select,
         "max_horizon": max_horizon,
         "select_metric": select_metric,
+        "val_horizon": val_horizon,
     }
     for path in PATHS:
         torch.save(best[path]["state"], models_dir / f"{name}_{path}.pt")

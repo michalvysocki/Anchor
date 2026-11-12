@@ -50,6 +50,126 @@ def rollout_median_error(model: nn.Module, windows: torch.Tensor) -> torch.Tenso
     return median_error(torch.stack(states, dim=1), windows[:, 1:])
 
 
+def direct_mse(
+    model: nn.Module, windows: torch.Tensor, horizon: int | None = None
+) -> torch.Tensor:
+    """
+    MSE of direct predictions F(z, k) over horizons 1..horizon. With
+    horizon None it equals grounding_loss.
+
+    Args:
+        model (nn.Module): horizon-conditioned model
+        windows (torch.Tensor): windows of size (n, k_max + 1, point_dim)
+        horizon (int | None): largest evaluated k, k_max if None
+
+    Returns:
+        torch.Tensor: scalar error
+    """
+
+    n, length, point_dim = windows.shape
+    k_max = length - 1
+    horizon = horizon or k_max
+    k = torch.arange(1, horizon + 1, device=windows.device).repeat(n)
+    starts = windows[:, 0].repeat_interleave(horizon, dim=0)
+    preds = predict(model, starts, k, k_max).reshape(n, horizon, point_dim)
+
+    return nn.functional.mse_loss(preds, windows[:, 1 : horizon + 1])
+
+
+def rollout_mse(
+    model: nn.Module, windows: torch.Tensor, horizon: int | None = None
+) -> torch.Tensor:
+    """
+    MSE of free-running rollouts over horizons 1..horizon. With horizon None
+    it equals rollout_error.
+
+    Args:
+        model (nn.Module): one-step model
+        windows (torch.Tensor): windows of size (n, k_max + 1, point_dim)
+        horizon (int | None): largest evaluated k, k_max if None
+
+    Returns:
+        torch.Tensor: scalar error
+    """
+
+    horizon = horizon or windows.shape[1] - 1
+    z = windows[:, 0]
+    states = []
+    for _ in range(horizon):
+        z = model(z)
+        states.append(z)
+
+    return nn.functional.mse_loss(
+        torch.stack(states, dim=1), windows[:, 1 : horizon + 1]
+    )
+
+
+def mse_per_horizon(errors: np.ndarray, point_dim: int) -> np.ndarray:
+    """
+    Test MSE at each horizon from Euclidean errors: mean over windows of the
+    squared error per coordinate, the statistic MSE training optimizes.
+    Infinite (diverged) errors make the MSE of that horizon infinite.
+
+    Args:
+        errors (np.ndarray): Euclidean errors of size (n, k_max)
+        point_dim (int): number of coordinates of a point
+
+    Returns:
+        np.ndarray: MSE of size (k_max,)
+    """
+
+    return (errors**2).mean(axis=0) / point_dim
+
+
+def nearest_neighbours(
+    reference_x: np.ndarray, query_x: np.ndarray, n_neighbours: int
+) -> np.ndarray:
+    """
+    Indices of the n nearest reference points of each query point in 1D.
+
+    Args:
+        reference_x (np.ndarray): sorted reference points of size (m,)
+        query_x (np.ndarray): query points of size (n,)
+        n_neighbours (int): number of neighbours
+
+    Returns:
+        np.ndarray: indices into reference_x of size (n, n_neighbours)
+    """
+
+    # the n nearest points of a sorted 1D array lie within n positions of
+    # the insertion point
+    pos = np.searchsorted(reference_x, query_x)
+    offsets = np.arange(-n_neighbours, n_neighbours)
+    candidates = np.clip(pos[:, None] + offsets, 0, len(reference_x) - 1)
+    dist = np.abs(reference_x[candidates] - query_x[:, None])
+    nearest = np.argsort(dist, axis=1)[:, :n_neighbours]
+
+    return np.take_along_axis(candidates, nearest, axis=1)
+
+
+def neighbour_futures(
+    reference: np.ndarray, query_x: np.ndarray, n_neighbours: int
+) -> np.ndarray:
+    """
+    Futures of the nearest reference windows of each one-dimensional query
+    point. Their mean estimates E[x_{t+k} | x_t], the best prediction under
+    MSE from x_t alone.
+
+    Args:
+        reference (np.ndarray): reference windows of size (m, k_max + 1)
+        query_x (np.ndarray): query points of size (n,)
+        n_neighbours (int): number of neighbours
+
+    Returns:
+        np.ndarray: futures of size (n, n_neighbours, k_max)
+    """
+
+    reference = reference[np.argsort(reference[:, 0])]
+    idx = nearest_neighbours(reference[:, 0], query_x, n_neighbours)
+
+    return reference[idx][:, :, 1:]
+
+
 def path_errors(
     model: torch.nn.Module, windows: torch.Tensor, path: str
 ) -> tuple[np.ndarray, np.ndarray]:

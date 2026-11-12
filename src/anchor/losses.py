@@ -59,6 +59,7 @@ def anchor_loss_composed(
     generator: torch.Generator,
     p_one: bool = False,
     symmetric: bool = False,
+    max_horizon: int | None = None,
 ) -> torch.Tensor:
     """
     Variant A: the composed path F(F(z, p), q) is pulled toward the direct
@@ -70,6 +71,8 @@ def anchor_loss_composed(
         generator (torch.Generator): generator for sampling decompositions
         p_one (bool): if True p is always 1
         symmetric (bool): if True gradients flow through both paths
+        max_horizon (int | None): largest sampled k, k_max if None. The
+            one-hot size still comes from the window length.
 
     Returns:
         torch.Tensor: scalar loss
@@ -77,7 +80,9 @@ def anchor_loss_composed(
 
     n, length, _ = windows.shape
     k_max = length - 1
-    k, p, q = sample_decomposition(n, k_max, p_one, generator, windows.device)
+    k, p, q = sample_decomposition(
+        n, max_horizon or k_max, p_one, generator, windows.device
+    )
     z = windows[:, 0]
 
     direct = predict(model, z, k, k_max)
@@ -94,6 +99,7 @@ def anchor_loss_bootstrapped(
     generator: torch.Generator,
     p_one: bool = False,
     symmetric: bool = False,
+    max_horizon: int | None = None,
 ) -> torch.Tensor:
     """
     Variant B: the prediction F(z_t, k) is pulled toward the shorter
@@ -105,6 +111,8 @@ def anchor_loss_bootstrapped(
         generator (torch.Generator): generator for sampling decompositions
         p_one (bool): if True p is always 1
         symmetric (bool): if True gradients flow through both paths
+        max_horizon (int | None): largest sampled k, k_max if None. The
+            one-hot size still comes from the window length.
 
     Returns:
         torch.Tensor: scalar loss
@@ -112,7 +120,9 @@ def anchor_loss_bootstrapped(
 
     n, length, _ = windows.shape
     k_max = length - 1
-    k, p, q = sample_decomposition(n, k_max, p_one, generator, windows.device)
+    k, p, q = sample_decomposition(
+        n, max_horizon or k_max, p_one, generator, windows.device
+    )
     rows = torch.arange(n, device=windows.device)
 
     anchor = predict(model, windows[rows, p], q, k_max)
