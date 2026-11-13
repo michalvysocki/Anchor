@@ -24,11 +24,13 @@ Every statement of the theory has a numerical check in `theory/`; its README is 
 Anchor/
 ├── src/anchor/              # library, installed as the `anchor` package
 │   ├── config.py            # data seeds, training seeds, K_MAX, burn-in (Hénon experiments)
-│   ├── envs/henon.py        # Hénon map, observation modes, trajectory windows
+│   ├── envs/henon.py        # Hénon map, observation modes, trajectory windows, x with observation noise
 │   ├── envs/lgssm.py        # AR(1)/AR(2) observed with noise: exact covariances, sampling, Kalman optimum
 │   ├── linear.py            # linear window model: population losses, stop-gradient fixed points,
 │   │                        #   anchor mixtures, bias–variance weights, critic
 │   ├── models.py            # horizon-conditioned MLP F(z, k), unit-step wrapper
+│   ├── ensemble.py          # independent networks trained in one batch, per-model Adam
+│   ├── latent.py            # latent world models with a flag, Anchor targets (C, D, DB, TDB, M*), critics
 │   ├── losses.py            # grounding, one-step, multi-step and Anchor losses (Hénon)
 │   ├── metrics.py           # path errors, median errors, sharpness, off-attractor, CIs
 │   ├── training.py          # Hénon variant catalogue and the shared training loop
@@ -39,6 +41,7 @@ Anchor/
 │   ├── e01_v0/              # each experiment: README, scripts, results/ (models/ not in git)
 │   ├── e01b_corrected/
 │   ├── e02_lgssm/           # design.py, predictions.py (before training), run.py, evaluate.py
+│   ├── e03_henon_latent/    # design.py, data.py, run.py, launch.sh (parallel stages)
 │   └── archive/             # pre_v0 (frozen pipeline before e01), limited_horizon (designed, not run)
 ├── theory/                  # one numerical check per statement of the theory; README.md is the map
 ├── paper/                   # LaTeX draft (Tectonic), synced to Overleaf later

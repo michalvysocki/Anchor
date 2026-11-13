@@ -172,3 +172,46 @@ def attractor_points(mode: ObservabilityMode, n_points: int = 10000) -> np.ndarr
     traj = rollout((0.1, 0.1), n_points + 1000)[1000:]
 
     return np.array(observe(traj, mode))
+
+
+def x_trajectories(
+    n_traj: int, length: int, rng: np.random.Generator, burn: int = 100
+) -> np.ndarray:
+    """
+    Trajectories of the x coordinate of shape (n_traj, length), started
+    uniformly in [-1, 1]^2 after a burn-in; unstable starts are redrawn,
+    so exactly n_traj trajectories are returned. Used by e03, which adds
+    observation noise and builds windows itself.
+    """
+
+    out = []
+    while len(out) < n_traj:
+        # starts outside the basin overflow before they are rejected
+        with np.errstate(over="ignore", invalid="ignore"):
+            traj = rollout(tuple(rng.uniform(-1, 1, 2)), burn + length - 1)
+        if is_trajectory_stable(traj):
+            out.append([p[0] for p in traj[burn:]])
+
+    return np.array(out)
+
+
+def x_moments(n_points: int = 200_000) -> tuple[float, float]:
+    """Mean and variance of x on the attractor."""
+    x = attractor_points("insufficient", n_points)[:, 0]
+
+    return float(x.mean()), float(x.var())
+
+
+def add_noise(
+    x: np.ndarray, kappa: float, x_mean: float, x_var: float, rng: np.random.Generator
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Observation noise with signal fraction kappa = Var(x) / Var(y):
+    y = x + v, Var(v) = Var(x) (1 - kappa) / kappa. Returns the clean x and
+    the noisy y, both centred and in units of sqrt(Var(y)).
+    """
+
+    noise = rng.normal(0.0, np.sqrt(x_var * (1 - kappa) / kappa), x.shape)
+    scale = np.sqrt(x_var / kappa)
+
+    return (x - x_mean) / scale, (x + noise - x_mean) / scale

@@ -30,7 +30,7 @@ The questions are whether the flag still helps when the mean of the state is not
 | onestep | none (λ = 0) |
 | C | the observed $y_{t+k}$ (Monte Carlo; the target of TD-MPC and SPR, in observation space) |
 | DB | $T_{k,p} + \delta_{k,p}(z_t)$, $p$ uniform on $2..k-1$ ($k = 2$: the observed $y_{t+2}$). $T_{k,p}$ is the decoded rollout of the same model from the window at $t+p$, its first step flagged as encoded. $\delta$ is a critic head on $\mathrm{sg}[\varphi(z_t)]$ (MLP, 1 hidden layer of 64, one output per pair), trained on $\mathrm{sg}[y_{t+k} - T_{k,p}]$ with 3× the model's learning rate |
-| M\* | mixture over anchor points $p = 2..k$ ($p = k$ is C, $p < k$ is $T_{k,p}$) with weights minimizing $w^\top(B + V/N)w$ on the simplex, $B$ from the difference of two critic heads (regressions of $T_{k,p}$ and of $y_{t+k}$ on $\mathrm{sg}[\varphi(z_t)]$), $V$ the covariance of their residuals, $N$ the number of training windows; recomputed every 100 steps on a training batch, under stop-gradient (as in e02) |
+| M\* | mixture over anchor points $p = 2..k$ ($p = k$ is C, $p < k$ is $T_{k,p}$) with weights minimizing $w^\top(B + V/N)w$ on the simplex, $B$ from the difference of two critic heads (regressions of $T_{k,p}$ and of $y_{t+k}$ on $\mathrm{sg}[\varphi(z_t)]$), $V$ the covariance of their residuals, $N$ the number of training windows; the weights stay on C for the first 1000 steps, while the critic heads train, then are recomputed every 100 steps on a training batch, under stop-gradient (as in e02) |
 
 **Ablations.** On two gap configurations, $\kappa = 0.5, L = 1$ and $\kappa = 0.8, L = 2$, main data arm. Each is compared with the variant it modifies:
 
@@ -46,17 +46,19 @@ The questions are whether the flag still helps when the mean of the state is not
 
 **GRU arm** (encoder with memory, the "filter" row of the bias table). The window encoder is replaced by a GRU over the last 16 observations (hidden size 16, the latent). The window length no longer applies, so the arm has 3 configurations, $\kappa \in \{1, 0.8, 0.5\}$ ($\kappa = 1$ is a Markov control), with the variants onestep, C, C+F, DB+F and M\*+F. Prediction: both biases shrink, so the flag and $\delta$ matter less than with a window.
 
-**Variance-regime arm.** On 4 configurations, $\kappa \in \{1, 0.5\} \times L \in \{1, 2\}$: (i) small data, (ii) long training horizons $k \in \{2..8\}$, closer to the limit of predictability. Variants C, C+F, D+F, DB+F, M\*+F. This is where target variance may matter, so where bootstrapped targets and M\* can gain.
+**Variance-regime arm.** On 4 configurations, $\kappa \in \{1, 0.5\} \times L \in \{1, 2\}$: (i) small data, (ii) long training horizons $k \in \{2..8\}$, closer to the limit of predictability. Variants C, C+F, D+F, DB+F, M\*+F; onestep and direct are trained in the small-data arm and taken from the main arm for the long horizons. This is where target variance may matter, so where bootstrapped targets and M\* can gain.
 
 **Not applicable.** A (composition consistency) holds by definition for a one-step model; B and E need a direct head, which is not a variant here. M (uniform mixture) and D without stop-gradient were settled in e02.
 
-**Reference (not a variant).** A direct network $F(z_t, k)$ (window MLP 2×128, one-hot $k$, $k = 1..10$), trained on the same data; in the GRU arm the same head on a GRU encoder (finding 1). The gap of a configuration is the test MSE of onestep minus that of direct, with the same encoder.
+**Reference (not a variant).** A direct network $F(z_t, k)$: the same encoder as the world model (window MLP 2×128 to the latent of 16), then a head on [latent, one-hot $k$] (1 hidden layer of 128), $k = 1..10$, trained on the same data; in the GRU arm the same head on a GRU encoder (finding 1). The gap of a configuration is the test MSE of onestep minus that of direct, with the same encoder.
 
 **Data.** Separate generators per split (tags below). Main arm: 2000 training trajectories (about $10^5$ windows). Small-data arm: 20 trajectories (about $10^3$ windows). Validation: 200 trajectories, shared, used for λ selection and the stopping rule. Test: 500 trajectories, fixed. Every seed draws its own training set (lesson of e02). Windows hold $L$ (or 16 for the GRU) past observations and 10 future ones.
 
-**Training.** Adam, learning rate $10^{-3}$, batches of 512 windows, gradient clipping 1.0. **Budget by convergence, identical for every variant, baseline and reference:** the validation loss of the variant is evaluated every 1000 steps; the learning rate is multiplied by 0.3 after 3 evaluations without a relative improvement of 0.1%; training stops when it falls below $10^{-5}$ or at 100 000 steps (runs stopped by the cap are reported). Each variant stops on its own loss, the objective it minimizes, so each reaches its own optimum; the validation rollout MSE is logged along the way, to show whether the primary metric was still moving at the stop (finding 4). λ ∈ {0.1, 1, 10}. Models of one configuration and variant are trained together as a batch of independent models where the code allows it.
+**Training.** Adam, learning rate $10^{-3}$, batches of 512 windows, gradient clipping 1.0. **Budget by convergence, identical for every variant, baseline and reference:** the validation loss of the variant is evaluated every 1000 steps; the learning rate is multiplied by 0.3 after 6 evaluations without a relative improvement of 0.01% (first drafted as 3 and 0.1%, changed by the correctness review below); training stops when it falls below $10^{-5}$ or at 100 000 steps (runs stopped by the cap are reported). Each variant stops on its own loss, the objective it minimizes, so each reaches its own optimum; the validation rollout MSE is logged along the way, to show whether the primary metric was still moving at the stop (finding 4). λ ∈ {0.1, 1, 10}. Models of one configuration and variant are trained together as a batch of independent models where the code allows it.
 
-**Seeds.** Selection seeds 0–2, evaluation seeds 3–12 (10 seeds), disjoint.
+**Seeds.** Selection seeds 0–2, evaluation seeds 3–32 (30 seeds, as in e02; first drafted as 10 and raised before any Anchor run, because external compute became available and onestep varies strongly between seeds, see the correctness review), disjoint.
+
+**Implementation details.** Every anchor point $p = 2..k-1$ of a horizon is used in every step and the targets are averaged, instead of sampling one $p$: the expected loss is the same and its noise lower. One rollout from the window at $t+p$ gives $T_{k,p}$ for every $k > p$. All variants of a configuration see the same sequence of training batches (the reference batches of the oracle have their own generator). The trained parameters of every run are saved next to its results.
 
 ## Questions
 
@@ -75,7 +77,7 @@ The questions are whether the flag still helps when the mean of the state is not
 ## Metrics
 
 - **Primary:** test rollout MSE against $y_{t+k}$, mean over $k = 1..10$, in units of $\mathrm{Var}(y)$.
-- **Comparison:** paired log ratio of the primary metric between two variants on the same seed (the same training data), mean and 95% t-interval over 10 seeds ($t = 2.262$), verdicts with the margin δ = log 1.02 as in e02 (better, material harm, small increase, harmless, inconclusive).
+- **Comparison:** paired log ratio of the primary metric between two variants on the same seed (the same training data), mean and 95% t-interval over 30 seeds ($t = 2.045$), verdicts with the margin δ = log 1.02 as in e02 (better, material harm, small increase, harmless, inconclusive).
 - **Fraction of the gap closed:** (onestep − variant) / (onestep − direct), in the gap configurations.
 - Secondary: MSE against the clean $x_{t+k}$; MSE per $k$; fraction of diverged rollouts ($|\hat y| > 10$); steps to convergence; weights of M\*; validation errors of every λ (sensitivity of the flagged variants to λ).
 - **Critic:** at the trained onestep model, the mean squared output of a critic head trained on $\mathrm{sg}[\text{rollout} - T_{k,p}]$ (the residual mean, Corollary), and the raw squared residual.
@@ -100,7 +102,7 @@ The questions are whether the flag still helps when the mean of the state is not
 | R1 | H1 and H2 hold | the flag carries to e05 as part of the method; H3–H5 and H-M\* set the default target (C, DB or M\*) |
 | R2 | H1 fails, H2 holds | the flag is a linear-case result and a diagnostic (the decomposition of the bias), not a method component for chaotic dynamics; Anchor stays the plug-in loss |
 | R3 | H2 fails | harm after convergence: the e01b harm is approximation error amplified by chaos; a mechanism that switches off (adaptive λ) becomes necessary, not optional |
-| R4 | a variant beats the direct reference on the primary metric by more than the margin, or the stopping rule fails for most runs | contradicts the setup; check the code and data before interpreting |
+| R4 | the stopping rule fails for most runs (the cap of 100 000 steps is reached), or most rollouts of a variant diverge | the training setup does not support the comparison; check the code and the budget before interpreting |
 
 The paper's claim about the method follows the decision rule recorded on 2026-11-13: the dynamics-side method (flag plus target) stays if it beats C; the encoder-side arm is parked and not part of e03.
 
@@ -116,6 +118,46 @@ Seven findings, all adopted (2026-11-14):
 6. **H1 mixes two kinds of gap.** $\kappa = 1, L = 1$ has a gap from missing memory only, the others from noise and memory. The criterion stays at 5 of 7; the two kinds are reported separately.
 7. **No closed-form predictions.** Before the full run, the gap (onestep − direct) of every configuration is measured from a short training of the two baselines on one seed and recorded as the size at stake. Configurations whose gap is too small to resolve (below 1% of the onestep MSE, as the threshold of H1 in e02) are reported descriptively and excluded from H1 and H4, decided before any Anchor variant is trained.
 
+## Correctness review of the code (2026-11-14, before any Anchor run)
+
+1. **The stopping rule was too lax: the onestep baseline had not converged.** With 0.1% and patience 3, onestep ($\kappa = 0.5$, $L = 1$, seed 0) stopped at 14 000 steps with test rollout MSE 1.200; stricter rules gave 1.152 (0.01%, patience 3), 1.128 (0.001%, patience 3) and 1.122 (0.01%, patience 6, stop at 32 000 steps), while C+F stayed at 0.978 under every rule. The lax rule would have favoured every Anchor variant against onestep, the error e02 warned about. Changed to 0.01% and patience 6 (stops at 27 000–40 000 steps), about 2.3 times the cost.
+2. **Trained parameters were not saved**, so H5 (a critic fitted on the trained onestep model) and any later analysis would need retraining. They are saved now.
+3. **M\* computed its first weights from untrained critic heads.** The weights now stay on C for the first 1000 steps.
+4. **The oracle drew its reference batches from the shared batch generator**, so its training batches differed from the other variants'. It has its own generator now.
+5. **Anchor points are averaged, not sampled** (Implementation details above).
+6. **The onestep rollout error varies strongly between seeds** (test MSE 1.05 to 1.18 at $\kappa = 0.5$, $L = 1$), so comparisons with onestep will have wide intervals.
+7. **The evaluation script and the critic of H5 are not written yet**; they are needed before the final stage, not before the selection stage.
+
+Second review (the same day, after raising the evaluation seeds to 30):
+
+8. **Initialization streams collided between modules**: the random stream of the encoder's first bias was the stream of the dynamics' first weights (correlation 1.0). Every tensor now has its own key (model, module, layer, kind), hashed by SeedSequence; the encoder of a model is still initialized identically across variants, which keeps the comparisons paired.
+9. **The direct reference was trained only in the gap stage**, on one seed, so the fraction of the gap closed would have compared 30 seeds with one. It is now trained in every configuration where onestep is (not in the long arm, whose data and reference are those of the main arm).
+
+Third review (final check before the runs):
+
+10. **H2 judges harm at every λ, but the final stage trained only the selected λ.** In the two Markov controls of the main arm, every Anchor variant is now trained at all three λ on the evaluation seeds.
+11. **R4 called a rollout model better than the direct reference a contradiction.** The direct network is an estimate of the reachable level, not the optimum (Known limitations), so a rollout model may beat it. R4 now covers only a failed stopping rule or diverging rollouts; a variant that beats the direct reference is reported, and its fraction of the gap closed exceeds 1.
+12. The description of the direct reference matched the code only roughly; it now states the architecture.
+
+Checked without change: disjoint generators for training (per arm and seed), validation, test and reference data; selection seeds 0–2 and evaluation seeds 3–32 draw different training sets; the window at $t+p$ and the targets $y_{t+k}$ are indexed correctly for the window and the GRU encoders; every target is under stop-gradient; critics are trained only by their own losses; the hypotheses H1, H3, H4, H-M\* and H5 use variants that the plan trains in the stated configurations.
+
+Fourth review:
+
+13. **Pairing depended on the size of a run.** Initialization keys and the batch generator depended on a model's position in its batch of models, so the models of one seed started from different parameters and saw different batches at different λ, and in the Markov controls (90 models per run) differently from onestep (30). Both are now keyed by the seed alone: the models of one seed share their initial encoder and their sequence of batches across λ, variants and run sizes.
+14. **λ selection could pick a diverged run**: `argmin` returns a NaN validation error as the minimum. Non-finite validation errors are now treated as infinite.
+
+Fifth review:
+
+15. **The onestep baseline of the long arm duplicated the main arm's**: the same large data, seeds and batches, and onestep does not use the training horizons. The long arm now uses the main arm's onestep and direct runs (165 → 161 jobs per stage).
+16. **An interrupted stage restarted from the first job.** A job whose parameters are saved is now skipped (`--force` reruns it), so a stage can be resumed on a shared machine.
+17. Memory: the largest validation passes (90 models; GRU with 30 models; the long arm) peak at about 2 GB per process, so 16 processes fit in 128 GB with room to spare.
+
+Code layout (after the fifth review): the world models, targets and critics are in the library (`src/anchor/latent.py`, with the batched networks in `src/anchor/ensemble.py` and the noise model in `src/anchor/envs/henon.py`), as the repository's rule asks for the method; this directory keeps the settings (`design.py`), the data assembly (`data.py`), the stages (`run.py`) and the launcher. The move was mechanical (sizes passed as parameters); the smoke run of C at κ = 0.5, L = 1 reproduces its test MSE before the move (0.9902), and `tests/test_latent.py` now checks automatically what the reviews checked by hand: the flag separates the first step, every target is under stop-gradient, the model loss does not train the critics and the critic loss does not train the model, the cached bootstraps equal separate rollouts, M\* weights lie on the simplex, initialization is paired across variants, and the window indices.
+
+An end-to-end test of the stages gap, selection and final (a few steps per job) and of the launcher with three processes passed.
+
+The losses after the change that computes one rollout per anchor point equal the previous ones bit for bit (28 cases, window and GRU encoders, short and long horizons).
+
 ## Gap measured before the Anchor runs
 
 To do (finding 7).
@@ -124,6 +166,31 @@ To do (finding 7).
 
 - The optimal predictor of a noisy Hénon map is not available in closed form; the direct network is an estimate of the reachable level, not the optimum.
 - Neural training adds approximation and optimization error, which the population theory does not cover; the convergence rule controls only the second.
-- 10 evaluation seeds give wider intervals than e02 (30).
 - The design was made after the exploratory e02 analyses (flag, DB, TDB), which motivate it; they are reported as exploratory and not counted as confirmation.
 - Generator tags: training 30, validation 31, test 32, reference 33 (new tags, so that no draw is shared with e01 or e01b).
+
+## How to run
+
+All stages run on CPU. The jobs are independent, so a machine with many cores runs them as parallel processes (`launch.sh`, every process takes every N-th job; results are written per job, so shards and machines can be merged by copying `results/runs/`). Trained parameters (`.pt`) are ignored by git and must be copied back with the JSON files.
+
+On a Linux machine (e.g. a Hetzner Cloud CCX server, Ubuntu 22.04 or 24.04, 48 dedicated vCPU):
+
+```
+# on the laptop: copy the repository (no GitHub access needed)
+rsync -az --exclude .venv --exclude logs --exclude '*/results/runs' ./ root@<ip>:anchor/
+
+# on the server
+apt update && apt install -y tmux
+curl -LsSf https://astral.sh/uv/install.sh | sh && source ~/.local/bin/env
+cd anchor && uv sync
+tmux new -s e03
+bash experiments/e03_henon_latent/launch.sh gap 12 2
+bash experiments/e03_henon_latent/launch.sh select 24 2
+bash experiments/e03_henon_latent/launch.sh final 24 2
+
+# on the laptop: copy the results and logs back, then delete the server
+rsync -az root@<ip>:anchor/experiments/e03_henon_latent/results/ experiments/e03_henon_latent/results/
+rsync -az root@<ip>:anchor/logs/ logs/
+```
+
+The gap stage is recorded in this README (finding 7) before the selection stage starts; the final stage needs every selection run.
