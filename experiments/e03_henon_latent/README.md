@@ -21,7 +21,7 @@ The questions are whether the flag still helps when the mean of the state is not
 - **Without flag:** $u_1 = \varphi(z_t) + \mathrm{MLP}(\varphi(z_t))$, $u_{j+1} = u_j + \mathrm{MLP}(u_j)$, prediction $\hat y_{t+j} = r(u_j)$.
 - **With flag (F):** the flag enters the MLP as a one-hot input $f$ (encoded or predicted), $u' = u + \mathrm{MLP}([u, f])$, with $f = \mathrm{enc}$ at the first step and $f = \mathrm{pred}$ after it. The extra capacity is one input column of the first layer (finding 2 of the design review: an embedding added to $u$ would shift the state itself, not only the transition).
 
-**Losses.** Targets are in observation space and under stop-gradient, so collapse cannot occur (the latent-target version, as in TD-MPC2, is left for e05). Every variant has the one-step loss $(r(u_1) - y_{t+1})^2$; the auxiliary term is $\lambda$ times the mean over $k$ of $(r(u_k) - \mathrm{sg}[\text{target}_k])^2$, training horizons $k \in \{2, 3, 4\}$ (with $k = 1$, the first $2n$ horizons for a state of dimension $n = 2$; the identifiability argument of the flag check), $k$ sampled uniformly.
+**Losses.** Every variant has the one-step loss $(r(u_1) - y_{t+1})^2 + \|u_1 - \mathrm{sg}[\varphi(z_{t+1})]\|^2$ (mean over latent dimensions): the prediction of the next observation and, as in TD-MPC and SPR, the consistency of the predicted latent with the encoding of the next window, which makes the predicted latent one the dynamics can be applied to again (added after the gap stage, finding 18). The multi-step targets are in observation space and under stop-gradient (the latent-target version of the multi-step term, as in TD-MPC2, is left for e05); the observation term keeps the latent informative, so the encoder cannot collapse. the auxiliary term is $\lambda$ times the mean over $k$ of $(r(u_k) - \mathrm{sg}[\text{target}_k])^2$, training horizons $k \in \{2, 3, 4\}$ (with $k = 1$, the first $2n$ horizons for a state of dimension $n = 2$; the identifiability argument of the flag check), $k$ sampled uniformly.
 
 **Variants (core).** Each without and with the flag, so 8 in all.
 
@@ -54,7 +54,7 @@ The questions are whether the flag still helps when the mean of the state is not
 
 **Data.** Separate generators per split (tags below). Main arm: 2000 training trajectories (about $10^5$ windows). Small-data arm: 20 trajectories (about $10^3$ windows). Validation: 200 trajectories, shared, used for λ selection and the stopping rule. Test: 500 trajectories, fixed. Every seed draws its own training set (lesson of e02). Windows hold $L$ (or 16 for the GRU) past observations and 10 future ones.
 
-**Training.** Adam, learning rate $10^{-3}$, batches of 512 windows, gradient clipping 1.0. **Budget by convergence, identical for every variant, baseline and reference:** the validation loss of the variant is evaluated every 1000 steps; the learning rate is multiplied by 0.3 after 6 evaluations without a relative improvement of 0.01% (first drafted as 3 and 0.1%, changed by the correctness review below); training stops when it falls below $10^{-5}$ or at 100 000 steps (runs stopped by the cap are reported). Each variant stops on its own loss, the objective it minimizes, so each reaches its own optimum; the validation rollout MSE is logged along the way, to show whether the primary metric was still moving at the stop (finding 4). λ ∈ {0.1, 1, 10}. Models of one configuration and variant are trained together as a batch of independent models where the code allows it.
+**Training.** Adam, learning rate $10^{-3}$, batches of 512 windows, gradient clipping 1.0. **Budget by convergence, identical for every variant, baseline and reference:** the validation loss of the variant is evaluated every 1000 steps; the learning rate is multiplied by 0.3 after 6 evaluations without an improvement of both 0.01% relative and $10^{-6}$ absolute (first drafted as 3 evaluations and 0.1%, changed by the correctness review and the gap stage below); training stops when it falls below $10^{-5}$ or at 100 000 steps (runs stopped by the cap are reported). Each variant stops on its own loss, the objective it minimizes, so each reaches its own optimum; the validation rollout MSE is logged along the way, to show whether the primary metric was still moving at the stop (finding 4). λ ∈ {0.1, 1, 10}. Models of one configuration and variant are trained together as a batch of independent models where the code allows it.
 
 **Seeds.** Selection seeds 0–2, evaluation seeds 3–32 (30 seeds, as in e02; first drafted as 10 and raised before any Anchor run, because external compute became available and onestep varies strongly between seeds, see the correctness review), disjoint.
 
@@ -76,19 +76,19 @@ The questions are whether the flag still helps when the mean of the state is not
 
 ## Metrics
 
-- **Primary:** test rollout MSE against $y_{t+k}$, mean over $k = 1..10$, in units of $\mathrm{Var}(y)$.
+- **Primary:** test rollout MSE against $y_{t+k}$, mean over $k = 1..4$ (decided on the gap stage), in units of $\mathrm{Var}(y)$; the mean over $k = 1..10$ is secondary.
 - **Comparison:** paired log ratio of the primary metric between two variants on the same seed (the same training data), mean and 95% t-interval over 30 seeds ($t = 2.045$), verdicts with the margin δ = log 1.02 as in e02 (better, material harm, small increase, harmless, inconclusive).
 - **Fraction of the gap closed:** (onestep − variant) / (onestep − direct), in the gap configurations.
 - Secondary: MSE against the clean $x_{t+k}$; MSE per $k$; fraction of diverged rollouts ($|\hat y| > 10$); steps to convergence; weights of M\*; validation errors of every λ (sensitivity of the flagged variants to λ).
 - **Critic:** at the trained onestep model, the mean squared output of a critic head trained on $\mathrm{sg}[\text{rollout} - T_{k,p}]$ (the residual mean, Corollary), and the raw squared residual.
 
-**λ selection.** Per configuration and variant, the λ with the lowest mean validation rollout MSE (k = 1..10) over the selection seeds.
+**λ selection.** Per configuration and variant, the λ with the lowest mean validation rollout MSE over the primary horizons ($k = 1..4$) over the selection seeds; a λ whose training diverged is never selected.
 
 ## Hypotheses and decision criteria
 
 | | prediction | criterion (test set, evaluation seeds) |
 |---|---|---|
-| H1 (Q1) | the flag helps, by less than in the linear case: only the model part of the bias is removed, the spread of the belief remains | C+F vs C "better" in at least 5 of the 7 gap configurations of the main arm; reported separately for the gap without noise ($\kappa = 1, L = 1$, missing memory only) and the gaps with noise (finding 6) |
+| H1 (Q1) | the flag helps, by less than in the linear case: only the model part of the bias is removed, the spread of the belief remains | C+F vs C "better" in at least 5 of the 7 gap configurations of the main arm; reported separately for the gap without noise ($\kappa = 1, L = 1$, missing memory only) and the gaps with noise (finding 6), and with the number of configurations whose improvement exceeds the flag's effect in the Markov controls (control for H1, Gap measured before the Anchor runs) |
 | H2 (Q2) | no harm after convergence | in the 2 Markov controls, no "material harm" for any core variant at any λ, against onestep without flag |
 | H3 (Q3) | two-sided; no direction is predicted | verdict of DB vs D and of DB+F vs D+F in the ablation configurations and the variance-regime arm; interpretation fixed now: DB "better" or "harmless" ⇒ D's advantage was the form of its target; DB "material harm" ⇒ it was its bias |
 | H4 (Q4) | main arm: DB+F within the margin of C+F; any gain of DB+F only in the variance-regime arm | DB+F vs C+F verdict per configuration; H4 holds if "harmless" or "better" in every main-arm gap configuration |
@@ -158,9 +158,31 @@ An end-to-end test of the stages gap, selection and final (a few steps per job) 
 
 The losses after the change that computes one rollout per anchor point equal the previous ones bit for bit (28 cases, window and GRU encoders, short and long horizons).
 
+## Finding of the first gap stage (2026-11-14, before any Anchor run)
+
+18. **The onestep baseline had no meaningful rollout.** In the Markov control $\kappa = 1$, $L = 2$, the first gap run (one seed) predicted one step almost exactly (one-step loss $3 \cdot 10^{-7}$, test MSE 0.000 at $k = 1$) but reached 2.50 at $k = 2$, more than the variance of the data, and 2.2 on average over $k = 1..10$. The one-step loss asked only that the predicted latent $u_1$ decode to $y_{t+1}$; nothing made it a latent to which the dynamics can be applied again, so the second step acted on an object outside the space the dynamics was trained on. (In e02 the latent was the window and the rollout shifted it, so the question did not arise.) Every Anchor variant would have beaten such a baseline trivially, which would have voided H1, H2 and the gaps. The one-step loss of every variant now also asks $u_1$ to match $\mathrm{sg}[\varphi(z_{t+1})]$, as the latent consistency of TD-MPC and SPR (Losses). Under a Markov gap the predicted latent then approaches the conditional mean of the next encoding, the situation the flag addresses. The gap stage was stopped and restarted with this loss; its first results are kept in `results/runs_invalid_gap_v1/`.
+
+19. **Smoke test of the corrected baseline** (one seed, trained to convergence): at $\kappa = 1$, $L = 2$ onestep now reaches 0.009 at $k = 2$ (2.50 before) and grows exponentially after $k \approx 4$ (3.50 at $k = 10$), while direct stays at 0.23 at $k = 10$; at $\kappa = 0.5$, $L = 1$ onestep and direct differ only at $k = 2..3$ (0.997 against 0.966) and both are near 0.98, unpredictable, from $k = 4$. Three consequences, settled on the full gap stage before any Anchor run: (a) the mean over $k = 1..10$ dilutes the effect into horizons where nothing is predictable, so the range of the primary metric is chosen from the gap stage; (b) onestep − direct mixes the Markov gap with approximation error amplified by chaos (1.39 in a Markov control), so the flag's effect in the Markov controls is used as a control for H1; (c) without noise the one-step loss keeps improving by more than 0.01% relative and training ran to the step cap, so an improvement must now also exceed $10^{-6}$ in absolute terms.
+
 ## Gap measured before the Anchor runs
 
-To do (finding 7).
+Gap stage, 2026-11-14, on the MacBook (CPU), one selection seed, onestep and direct trained to the stopping rule, with the one-step latent consistency (finding 18). `gap_report.py` prints the test MSE at every $k$ (`results/gap_report.json`).
+
+| configuration | relative gap over $k = 1..4$ | $k$ where direct < 0.95 Var(y) | note |
+|---|---|---|---|
+| κ = 1, L = 1 (gap without noise) | +38.6% | 1–10 | |
+| κ = 0.8, L = 1, 2, 4 | +6.5%, +4.9%, +3.5% | 1–5, 1–5, 1–6 | |
+| κ = 0.8, GRU | +13.8% | 1–9 | |
+| κ = 0.5, L = 1, 2, 4 | +2.0%, +3.7%, +1.0% | 1, 1–3, 1–3 | |
+| κ = 0.5, GRU | +1.7% | 1–3 | |
+| κ = 1, L = 2, 4, GRU (Markov) | +92%, −185%, +96% | 1–10 | onestep nearly exact up to $k \approx 3$, then chaos amplifies its error |
+
+All runs at κ = 1 reached the cap of 100 000 steps (4 of the 12 configurations); the others stopped at 29 000–84 000 steps.
+
+**Decisions, before any Anchor run (accepted 2026-11-14):**
+1. **Primary metric over $k = 1..4$** (the training horizons; with noise the map is predictable for 3 to 6 steps, and the mean over $k = 1..10$ diluted the gap into unpredictable horizons). λ is selected on the same range. The mean over $k = 1..10$ is reported as secondary.
+2. **H1 and H4 use all 7 window configurations with a gap**: each has a relative gap of at least 1% over $k = 1..4$ (κ = 0.5, L = 4 at 1.03%).
+3. **Control for H1.** In the Markov controls (κ = 1, L = 2 and 4) the flag has no model bias to remove, so its effect there measures what it does for other reasons, such as damping the growth of error under chaos. The effect in a gap configuration is attributed to the Markov gap only if its improvement, −(mean log ratio of C+F to C), exceeds the largest improvement in the Markov controls; the count of attributed configurations is reported with H1.
 
 ## Known limitations
 

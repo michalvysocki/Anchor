@@ -35,6 +35,7 @@ from design import (
     LR_FACTOR,
     LR_STOP,
     MAX_STEPS,
+    MIN_ABS_IMPROVEMENT,
     MIN_REL_IMPROVEMENT,
     MSTAR_EVERY,
     MSTAR_WARMUP,
@@ -43,6 +44,7 @@ from design import (
     N_TRAJ,
     N_VAL_TRAJ,
     PATIENCE,
+    PRIMARY_K,
     REF_TAG,
     SELECTION_SEEDS,
     SHORT_HORIZONS,
@@ -152,7 +154,7 @@ def expand(w: torch.Tensor, n_models: int) -> torch.Tensor:
 
 
 def evaluate(models, w: torch.Tensor, lam: torch.Tensor, chunk: int = 4096):
-    """Own loss and rollout MSE (k = 1..10) on a shared set, per model."""
+    """Own loss and rollout MSE at every k = 1..10 on a shared set, per model."""
     n_models = lam.shape[0]
     own, mse, count = 0.0, 0.0, 0
     with torch.no_grad():
@@ -161,7 +163,7 @@ def evaluate(models, w: torch.Tensor, lam: torch.Tensor, chunk: int = 4096):
             loss, _ = models.losses(part, lam)
             n = part.shape[1]
             own = own + loss * n
-            mse = mse + models.rollout_mse(part)["mse"].mean(-1) * n
+            mse = mse + models.rollout_mse(part)["mse"] * n
             count += n
     return own / count, mse / count
 
@@ -277,7 +279,9 @@ def train(
         opt.step()
         if step % EVAL_EVERY == 0 or step == max_steps:
             own, val_mse = evaluate(models, data.val, lam)
-            improved = own < best * (1 - MIN_REL_IMPROVEMENT)
+            improved = (own < best * (1 - MIN_REL_IMPROVEMENT)) & (
+                own < best - MIN_ABS_IMPROVEMENT
+            )
             best = torch.where(improved, own, best)
             stale = torch.where(improved, torch.zeros_like(stale), stale + 1)
             reduce = (stale >= PATIENCE) & (opt.lr > 0)
@@ -294,7 +298,8 @@ def train(
                 {
                     "step": step,
                     "own": own.tolist(),
-                    "val_mse": val_mse.tolist(),
+                    "val_mse": val_mse.mean(-1).tolist(),
+                    "val_mse_k": val_mse.tolist(),
                     "lr": opt.lr.tolist(),
                 }
             )
@@ -442,7 +447,10 @@ def main():
 
 
 def selected_lambda(kappa, window, variant, arm) -> float:
-    """Lowest mean validation rollout MSE (last evaluation) over the selection seeds."""
+    """
+    Lowest validation rollout MSE over PRIMARY_K (last evaluation), averaged
+    over the selection seeds.
+    """
     if base(variant) == "onestep" or variant == "direct":
         return 0.0
     r = json.loads(
@@ -450,7 +458,9 @@ def selected_lambda(kappa, window, variant, arm) -> float:
             RUNS_DIR / "select" / (run_name(kappa, window, variant, arm) + ".json")
         ).read_text()
     )
-    val = np.array(r["curve"][-1]["val_mse"]).reshape(len(LAMBDAS), -1).mean(1)
+    a, b = PRIMARY_K
+    val_k = np.array(r["curve"][-1]["val_mse_k"])[:, a - 1 : b].mean(1)
+    val = val_k.reshape(len(LAMBDAS), -1).mean(1)
     # a lambda whose training diverged (NaN) must never be selected
     val = np.where(np.isfinite(val), val, np.inf)
     return float(LAMBDAS[int(np.argmin(val))])

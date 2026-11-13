@@ -1,4 +1,4 @@
-.PHONY: test lint format theory paper e02-predictions e02-evaluate
+.PHONY: test lint format theory paper e02-predictions e02-evaluate e03-evaluate
 
 test:
 	uv run pytest -q
@@ -22,3 +22,6 @@ e02-predictions:
 
 e02-evaluate:
 	uv run python -u experiments/e02_lgssm/evaluate.py | tee logs/e02_evaluate.log
+
+e03-evaluate:
+	cd experiments/e03_henon_latent && uv run python -u evaluate.py | tee ../../logs/e03_evaluate.log

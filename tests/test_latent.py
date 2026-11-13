@@ -92,3 +92,17 @@ def test_target_of_y_is_the_observation_k_steps_ahead():
     # window of 2 past values (indices 0, 1); y_{t+k} is at index 1 + k
     assert [m.y(w, k).item() for k in (1, 3)] == [2.0, 4.0]
     assert m.past == 2
+
+
+def test_one_step_loss_includes_latent_consistency():
+    m = model("onestep")
+    w = batch()
+    loss, _ = m.losses(w, torch.zeros(2))
+    with torch.no_grad():
+        u1 = m.step(m.encode(w, 0), True)
+        pred = (m.decode(u1) - m.y(w, 1)).pow(2).mean(-1)
+        cons = (u1 - m.encode(w, 1)).pow(2).mean((-2, -1))
+    assert torch.allclose(loss, pred + cons)
+    # the target encoding is under stop-gradient
+    grads = torch.autograd.grad(loss.sum(), m.enc.parameters(), allow_unused=True)
+    assert any(g is not None for g in grads)

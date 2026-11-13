@@ -3,7 +3,9 @@ Latent world models with Anchor targets, as ensembles of M independent
 models trained in one batch (e03; to be reused by e04 and e05): an encoder
 of the observation window (MLP) or history (GRU), residual latent dynamics
 with an optional flag (encoded vs predicted input), a decoder to the
-observation, and the critic heads of the targets. Targets live in
+observation, and the critic heads of the targets. The one-step loss
+predicts y_{t+1} and keeps the predicted latent consistent with the encoding
+of the next window (as TD-MPC and SPR); the multi-step targets live in
 observation space and are under stop-gradient:
 
 - C: the observed future y_{t+k} (Monte Carlo)
@@ -222,11 +224,22 @@ class WorldModels(torch.nn.Module):
     def losses(
         self, w: torch.Tensor, lam: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Model loss (one-step + lam * auxiliary) and critic loss."""
+        """
+        Model loss and critic loss. The one-step loss has two terms, as in
+        TD-MPC and SPR: the prediction of y_{t+1} and the consistency of the
+        predicted latent with sg[phi(z_{t+1})]. Without the second, nothing
+        makes u_1 a latent that the dynamics can be applied to again, and a
+        model trained on one step has no meaningful rollout. The auxiliary
+        multi-step term is weighted by lam.
+        """
+
         z_t = self.encode(w, 0)
         us = self.rollout(z_t, max(self.horizons) if self.target != "onestep" else 1)
         preds = [self.decode(u) for u in us]
-        one = (preds[0] - self.y(w, 1)).pow(2).mean(-1)
+        with torch.no_grad():
+            z_next = self.encode(w, 1)
+        consistency = (us[0] - z_next).pow(2).mean((-2, -1))
+        one = (preds[0] - self.y(w, 1)).pow(2).mean(-1) + consistency
         if self.target == "onestep":
             return one, one.new_zeros(one.shape)
         boot = self.boot_for(w, z_t) if self.target != "C" else {}

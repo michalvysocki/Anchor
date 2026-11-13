@@ -13,6 +13,11 @@ EVAL_HORIZON = 10
 SHORT_HORIZONS = (2, 3, 4)
 LONG_HORIZONS = tuple(range(2, 9))
 LAMBDAS = (0.1, 1.0, 10.0)
+# horizons (inclusive) of the primary metric and of lambda selection, fixed
+# from the gap stage before the selection stage (README, Gap measured before
+# the Anchor runs): the training horizons, within the range where the noisy
+# Hénon map is still predictable; k = 1..10 is reported as secondary
+PRIMARY_K = (1, 4)
 LEN_TRAJ = 64
 N_TRAJ = {"large": 2000, "small": 20}
 N_VAL_TRAJ, N_TEST_TRAJ, N_REF_TRAJ = 200, 500, 20000
@@ -28,6 +33,10 @@ LR, CRITIC_LR_FACTOR, BATCH, CLIP = 1e-3, 3.0, 512, 1.0
 # stricter than first drafted: with 0.1% and patience 3 the onestep baseline
 # stopped before its rollout error had settled (correctness review, README)
 EVAL_EVERY, PATIENCE, MIN_REL_IMPROVEMENT = 1000, 6, 1e-4
+# an improvement must also exceed this absolute amount (units of Var(y)):
+# without noise the one-step loss falls towards 1e-7 and keeps improving by
+# more than 0.01% relative, so the relative rule alone never stops
+MIN_ABS_IMPROVEMENT = 1e-6
 LR_FACTOR, LR_STOP, MAX_STEPS = 0.3, 1e-5, 100_000
 MSTAR_EVERY = 100
 # M* keeps the C weights until its critic heads have trained for this long
