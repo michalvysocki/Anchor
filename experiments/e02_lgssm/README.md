@@ -317,6 +317,13 @@ Worst value over the three λ in units of Var(y).
 - **Markov latents:** every variant is exact (excess ≤ 6e-6), except unconverged C+F and M*+F runs at λ = 0.01, L = 8.
 - **Horizons {1, 3, 4} are not enough for second-order systems**: C+F fails in 7 AR(2) configurations, as the identifiability argument predicts.
 
+**Exploratory TDB check** (`explore_tdb_small.py`, output `results/explore_tdb_small.json`, log `logs/e02_explore_tdb_small.log`, run 2026-11-13). Finite-sample comparison of bootstrapped targets with the flagged model: the 12 small-arm configurations, the same training windows as e02 (about 1000 windows, 30 evaluation seeds) and a tiny arm of 5 trajectories (about 270 windows), horizons {1, 2, 3, 4}, λ = 1, critics fitted on the same windows, exact evaluation. Log ratio of the mean rollout MSE (k = 1..10) to C+F on the same seed. The prediction was written in the script before the first run.
+
+- **DB+F equals C+F**, as predicted: |log ratio| < 1e-10 in 23 of 24 rows, 3e-6 in the last. A critic linear in $z_t$ fitted on the same data turns the debiased target into the Monte Carlo loss plus a constant.
+- **D+F is worse than C+F** wherever there is a gap (+1% to +10%), by its target information bias, and diverges for AR(2) with L = 1.
+- **TDB+F has no reliable advantage.** Where it converges (AR(1), AR(2) with L = 2) it lies within ±0.3% of C+F in the small arm; in the tiny arm with κ = 0.5 it is better by 0.2% (AR(1), a = 0.9, both windows, intervals excluding zero) and by 1–2% at a = 0.99 (intervals including or touching zero), and worse by 0.3% with κ = 1. For AR(2) with L = 1, where the dynamics are poorly identified from the data, its stop-gradient iteration does not converge in 16 to 28 of 30 seeds and it is harmful.
+- **Consequence for e03.** In the linear case the gain of a debiased bootstrap over C is at most about 1% and only with very little data, and the telescoped version adds an instability where the dynamics are poorly identified. Its possible value lies in the nonlinear case, which this check cannot address.
+
 ## Conclusion
 
 Written by the user, 2026-11-12.
