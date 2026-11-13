@@ -1,0 +1,14 @@
+# Exploratory pilot: a latent split into u and s
+
+Not pre-registered and not part of e03; it imports e03's code without changing it. Decided on 2026-11-14, after the diagnosis that the one-step latent consistency $u_1 \approx \mathrm{sg}[\varphi(z_{t+1})]$ keeps only the mean of the next encoding and erases the rest of the belief (above all its uncertainty), which nonlinear dynamics need from $k = 2$ on (Jensen: on Hénon $\mathbb E[x^2] = (\mathbb E x)^2 + \sigma^2$). The flag recovers one bit of what is erased and the sphere one summary (the norm); a split of the latent recovers a free memory. It replaces the DB*/CV pilot, which acts on the target, a second-order effect (all unbiased targets share C's population fixed point).
+
+**Split.** The last 4 of the 16 latent dimensions are reserved for $s$: encodings have $s = 0$ (an observation is a fact), the decoder reads $u$ only, and the latent consistency compares $u$ only, so $s$ is trained only by helping the dynamics predict later $u$. No new parameters and no change of shapes, only masks: the closest form to a plug-in. With $s$ the flag is a special case ($s \in \{0, \text{const}\}$).
+
+**Setup.** Hénon as in e03, window $L = 1$, κ ∈ {0.8, 0.5, 1}; variants CL (latent multi-step targets, no flag), CL+F (the flag of e03), CL+s (the split) and CL12 (a plain latent of 12 dimensions, the capacity control for CL+s, whose $u$ has 12; added by a check before the run); five seeds (200–204, no draw shared with e03 or the other pilots); 30 000 steps, Adam $10^{-3}$ reduced tenfold for the last 20%; λ = 1; horizons {2, 3, 4}. Measured on the validation set: rollout MSE over $k = 1..4$ and $k = 1..10$ per seed; for CL+s, the norm of $s_k$ for $k = 1..6$ and its rank correlation, across 20 quantile bins of $y_t$, with the variance of the $u$-encodings $k$ steps ahead.
+
+**Predictions** (written before the first run):
+- S1: in the gap configurations CL+s has a rollout MSE over $k = 1..4$ at most that of CL12 (same capacity of $u$), and close to CL+F's or below.
+- S2: $s$ is used: its norm grows with $k$ and correlates positively with the variance of the future $u$-encodings.
+- S3: no prediction for CL+s against CL+F beyond S1.
+
+Run: `uv run python experiments/explore_us/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).

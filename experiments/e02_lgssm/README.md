@@ -235,7 +235,7 @@ D is the weakest variant in every configuration of both arms. No configuration o
 - **M\*_oracle:** within $10^{-4}$ of M\*; better in 3 of 33 and 4 of 7 configurations by tiny amounts. The weights are well estimated.
 - **M\*_p1:** within $10^{-6}$ of M\* on average. The anchor point $p = 1$ adds nothing.
 
-**Outcome.** Formally **R3** (H2 fails by one test). Per R3 the code and the estimation were checked before interpreting (below). Assessment agreed with the user: **R3 formally, R1 after diagnosis.**
+**Outcome.** Formally **R3** (H2 fails by one test). Per R3 the code and the estimation were checked before interpreting (below). Assessment: **R3 formally, R1 after diagnosis.**
 
 ## Exploratory analysis (after the evaluation, not pre-registered)
 
@@ -326,7 +326,7 @@ Worst value over the three λ in units of Var(y).
 
 ## Conclusion
 
-Written by the user, 2026-11-12.
+Written 2026-11-12.
 
 1. e02 confirmed the theory quantitatively in the linear-Gaussian setting with a fixed window encoder:
    - the population fixed points predicted, before training, the gains of every variant to the third decimal (T2);

@@ -164,7 +164,7 @@ Rollout sharpness at k = 10 in insufficient: floor 0.575, onestep 0.727, D 0.758
 Against the pre-registered criteria and predictions:
 
 - **Q3 / H3 replicates** (direct beats rollout in insufficient, rollout beats direct in sufficient). Predicted ≈90%.
-- **Q1: formally R1 through E**, as predicted ("R1 ≈25%, mostly through E", with the caveat that E is harmless only relative to the direct family). Assessment agreed with the user: **R1 formally, R3 in practice.** E is about 500× worse than onestep in sufficient, its rollout is uniformly damped rather than closer to the conditional mean, and it worsens its own direct path in both modes.
+- **Q1: formally R1 through E**, as predicted ("R1 ≈25%, mostly through E", with the caveat that E is harmless only relative to the direct family). Assessment: **R1 formally, R3 in practice.** E is about 500× worse than onestep in sufficient, its rollout is uniformly damped rather than closer to the conditional mean, and it worsens its own direct path in both modes.
 - **Q2 / H1 not confirmed:** C is "blurred", D "inconclusive". The "blurred" verdict is an artefact of the pre-registered rule: sharpness 1.001 vs 1.001 (difference −0.001 ± 0.000) is significant only because the interval around a near-exact model is extremely narrow; the rule had no practical threshold. The equivalence test with a +10% relative margin cannot pass when the baseline MSE is ~4·10⁻⁴ (relative intervals ±24–31%). Reported as pre-registered; both are protocol lessons, not evidence of harm.
 - **Prediction for C and D** ("not better" in insufficient at admissible λ): holds for C; D is formally "better" with an interval that almost touches zero.
 - **H2:** E's sharpness at k = 10 is closer to the floor than onestep's, so H2 passes at the pre-registered horizon, but over the whole curve E does not follow the conditional mean (see above). D improves while its sharpness moves away from the floor (the R4 clause), but the sharpness difference is not significant (+0.031 ± 0.054).
@@ -173,7 +173,7 @@ Against the pre-registered criteria and predictions:
 
 ## Conclusion
 
-Written by the user, 2026-11-12.
+Written 2026-11-12.
 
 1. Path consistency with short auxiliary horizons and a small λ is not inherently destructive: C and D leave the near-exact one-step model intact in the well-specified case, which confirms that the failure of e01 came from its configuration. A gain in the misspecified case exists, but only at λ values that harm the well-specified case; at admissible λ it is negligible (C +0.5%, D −2.3%). D beating C at every λ is consistent with a bias–variance trade-off of Monte Carlo targets on chaotic dynamics; this is a prediction for e02, not a result of e01b. E's gain, together with the worse direct path and the uniformly damped rollout, argues against sharing one model between the direct head and the dynamics.
 2. No fixed λ serves both observability regimes, which argues for an adaptive Anchor whose strength depends on the regime (λ(Δ)).
@@ -192,7 +192,7 @@ Question: does the path disagreement of the baseline models (λ = 0, evaluation 
 
 Observations:
 
-- The bootstrap residual, which needs only the user's one-step model and the data, separates the modes by 4–5 orders of magnitude. Caveat: it is the D loss, i.e. the variance of the target plus the squared Markov-gap bias. Hénon has no process noise, so in the sufficient mode the variance part is zero; with process noise the residual stays positive for a Markov latent, and the bias part (the disagreement Δ of the theory) has to be separated from it. This separation is the open part of T4.
+- The bootstrap residual, which needs only the trained one-step model and the data, separates the modes by 4–5 orders of magnitude. Caveat: it is the D loss, i.e. the variance of the target plus the squared Markov-gap bias. Hénon has no process noise, so in the sufficient mode the variance part is zero; with process noise the residual stays positive for a Markov latent, and the bias part (the disagreement Δ of the theory) has to be separated from it. This separation is the open part of T4.
 - The direct-vs-rollout disagreement has almost the magnitude of the rollout gap (0.12 vs 0.11, 0.55 vs 0.50, 0.73 vs 0.65), but not its sign: in the sufficient mode the rollout is the better path. This is largely mechanical: when one predictor is near-optimal, the squared disagreement approximates the excess error of the other.
 - The composition inconsistency of the direct model does not separate the modes at k = 2 (0.12 vs 0.13). Self-consistency without grounding in a later observation does not measure the Markov gap; it reflects the direct model's own error. This supports A as the ablation of grounding.
 - Limitation: the two modes are extreme (an exact Markov state without noise vs a strongly non-Markov observation). Whether the disagreement tracks the size of the gap in between is a question for e02, where κ can be varied continuously.
