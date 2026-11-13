@@ -190,47 +190,53 @@ def h2():
 def h3():
     rows = {}
     for k, w in ABLATION_CONFIGS:
-        rows[f"{config_name(k, w)} main DB vs D"] = compare(
-            primary(k, w, "DB"), primary(k, w, "D")
-        )
-        rows[f"{config_name(k, w)} main DB+F vs D+F"] = compare(
-            primary(k, w, "DB+F"), primary(k, w, "D+F")
-        )
+        for f in ("", "+F"):
+            rows[f"{config_name(k, w)} main DB{f} vs D{f}"] = compare(
+                primary(k, w, "DB" + f), primary(k, w, "D" + f)
+            )
     for k, w in VARIANCE_CONFIGS:
         for arm in ("small", "long"):
-            rows[f"{config_name(k, w)} {arm} DB+F vs D+F"] = compare(
-                primary(k, w, "DB+F", arm), primary(k, w, "D+F", arm)
-            )
+            for f in ("", "+F"):
+                rows[f"{config_name(k, w)} {arm} DB{f} vs D{f}"] = compare(
+                    primary(k, w, "DB" + f, arm), primary(k, w, "D" + f, arm)
+                )
     return {"rows": rows}
 
 
 def h4():
-    rows = {}
+    """
+    H4: DB+F vs C+F (decision); H4b: DB vs C without the flag (secondary,
+    added before any test result), in the main gap configurations and the
+    variance-regime arm.
+    """
+
+    rows, secondary = {}, {}
     for k, w in gap_configs():
-        rows[f"{config_name(k, w)} main"] = compare(
-            primary(k, w, "DB+F"), primary(k, w, "C+F")
-        )
+        name = f"{config_name(k, w)} main"
+        rows[name] = compare(primary(k, w, "DB+F"), primary(k, w, "C+F"))
+        secondary[name] = compare(primary(k, w, "DB"), primary(k, w, "C"))
     holds = all(
         r is not None and r["verdict"] in ("harmless", "better") for r in rows.values()
     )
     for k, w in VARIANCE_CONFIGS:
         for arm in ("small", "long"):
-            rows[f"{config_name(k, w)} {arm}"] = compare(
-                primary(k, w, "DB+F", arm), primary(k, w, "C+F", arm)
-            )
-    return {"rows": rows, "holds": holds}
+            name = f"{config_name(k, w)} {arm}"
+            rows[name] = compare(primary(k, w, "DB+F", arm), primary(k, w, "C+F", arm))
+            secondary[name] = compare(primary(k, w, "DB", arm), primary(k, w, "C", arm))
+    return {"rows": rows, "holds": holds, "H4b": secondary}
 
 
 def mstar_settings():
     """(kappa, window, arm, flag suffix, fixed targets) where H-M* is judged."""
     out = []
-    for k, w in configs():
+    for k, w in configs() + configs(gru=True):
         for f in ("", "+F"):
             fixed = ["C", "DB"] + (["D"] if (k, w) in ABLATION_CONFIGS else [])
             out.append((k, w, "main", f, fixed))
     for k, w in VARIANCE_CONFIGS:
         for arm in ("small", "long"):
-            out.append((k, w, arm, "+F", ["C", "D", "DB"]))
+            for f in ("", "+F"):
+                out.append((k, w, arm, f, ["C", "D", "DB"]))
     return out
 
 
@@ -397,6 +403,12 @@ def main():
     for name in ("H1", "H2", "H3", "H4", "H-M*", "H5"):
         h = out[name]
         print(f"\n== {name}: holds={h.get('holds')}")
+        if name == "H4":
+            for key, r in h["H4b"].items():
+                if r is not None:
+                    print(
+                        f"  H4b {key:41s} {r['mean']:+.4f} ± {r['half']:.4f}  {r['verdict']}"
+                    )
         if name == "H1":
             print(
                 f"  better {h['better']} of {h['n']}; control improvement {h['control_improvement']:+.4f}; attributed {h['attributed']}"

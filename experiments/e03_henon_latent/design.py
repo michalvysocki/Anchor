@@ -44,10 +44,23 @@ MSTAR_WARMUP = 1000
 
 CORE = ("onestep", "C", "DB", "M*")
 ABLATION_CONFIGS = ((0.5, 1), (0.8, 2))
-ABLATIONS = ("D", "D+F", "TDB+F", "DB+F_oracle", "C+F_h34", "C_wide", "C+F_two")
+# every target is trained with and without the flag (added 2026-11-14, before
+# any test result, README); C+F_h34, C_wide and C+F_two are ablations of the
+# flag itself and have no unflagged counterpart
+ABLATIONS = (
+    "D",
+    "D+F",
+    "TDB",
+    "TDB+F",
+    "DB_oracle",
+    "DB+F_oracle",
+    "C+F_h34",
+    "C_wide",
+    "C+F_two",
+)
 VARIANCE_CONFIGS = ((1.0, 1), (1.0, 2), (0.5, 1), (0.5, 2))
-VARIANCE_VARIANTS = ("onestep", "C", "C+F", "D+F", "DB+F", "M*+F")
-GRU_VARIANTS = ("onestep", "C", "C+F", "DB+F", "M*+F")
+VARIANCE_VARIANTS = ("onestep", "C", "C+F", "D", "D+F", "DB", "DB+F", "M*", "M*+F")
+GRU_VARIANTS = ("onestep", "C", "C+F", "DB", "DB+F", "M*", "M*+F")
 
 SIZES = Sizes(LATENT, HIDDEN, DECODER_HIDDEN, CRITIC_HIDDEN, EVAL_HORIZON, GRU_HISTORY)
 
