@@ -34,6 +34,9 @@ from anchor.stats import mean_ci, paired_log_ratio, verdict
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 MARGIN = math.log(1.02)
+# relative criterion for comparing two targets (README): equivalent if the
+# difference in the fraction of the gap closed is within 25% of the gap
+EQUIVALENCE = 0.25
 # configurations with a gap below this fraction of the onestep error are
 # excluded from H1 and H4 (README, finding 7), decided on the gap stage
 GAP_THRESHOLD = 0.01
@@ -93,6 +96,43 @@ def compare(a: dict | None, b: dict | None) -> dict | None:
     }
 
 
+def gap_fraction(kappa, window, a: str, b: str, arm: str = "main") -> dict | None:
+    """
+    Difference in the fraction of the gap closed, (b - a) / gap per seed,
+    with gap = mean over seeds of onestep - direct on the primary metric:
+    positive when a closes more of the gap than b. Verdict against the
+    relative margin EQUIVALENCE (README, relative criterion):
+    "better" if the interval is above 0, "equivalent" if it lies within
+    plus or minus EQUIVALENCE, "worse" if it is below 0 and not equivalent.
+    """
+
+    pa, pb = primary(kappa, window, a, arm), primary(kappa, window, b, arm)
+    one, direct = (
+        primary(kappa, window, "onestep", arm),
+        primary(kappa, window, "direct", arm),
+    )
+    if None in (pa, pb, one, direct):
+        return None
+    gap = mean_of(one) - mean_of(direct)
+    if not gap > 0:
+        return None
+    seeds = sorted(set(pa) & set(pb))
+    diff = np.array([(pb[s] - pa[s]) / gap for s in seeds])
+    diff = diff[np.isfinite(diff)]
+    if len(diff) < 2:
+        return None
+    mean, half = (float(x) for x in mean_ci(diff))
+    if mean - half > 0:
+        v = "better"
+    elif mean - half > -EQUIVALENCE and mean + half < EQUIVALENCE:
+        v = "equivalent"
+    elif mean + half < 0:
+        v = "worse"
+    else:
+        v = "inconclusive"
+    return {"mean": mean, "half": half, "verdict": v, "gap": gap}
+
+
 def mean_of(d):
     return None if d is None else float(np.nanmean(list(d.values())))
 
@@ -101,15 +141,21 @@ def mean_of(d):
 
 
 def gap_stage(kappa, window) -> float | None:
-    """Relative gap (onestep - direct) / onestep from the gap stage (one seed)."""
-    one, direct = (
-        load("gap", kappa, window, "onestep", "main"),
-        load("gap", kappa, window, "direct", "main"),
-    )
-    if one is None or direct is None:
+    """
+    Relative gap (onestep - direct) / onestep over PRIMARY_K, from the gap
+    stage on the VALIDATION set (gap_report.py): design decisions are taken
+    on validation data, never on the test set (methodological review).
+    """
+
+    path = RESULTS_DIR / "gap_report.json"
+    if not path.exists():
         return None
-    o, d = np.mean(one["test"]["mse"]), np.mean(direct["test"]["mse"])
-    return float((o - d) / o)
+    row = json.loads(path.read_text()).get(config_name(kappa, window))
+    if row is None:
+        return None
+    a, b = PRIMARY_K
+    o, d = row["onestep_val"][a - 1 : b], row["direct_val"][a - 1 : b]
+    return float((np.mean(o) - np.mean(d)) / np.mean(o))
 
 
 def configs(gru=False):
@@ -159,16 +205,21 @@ def h1():
         ),
         default=float("nan"),
     )
+    fractions = {
+        config_name(k, w): gap_fraction(k, w, "C+F", "C") for k, w in gap_configs()
+    }
     better = [n for n, r in rows.items() if r is not None and r["verdict"] == "better"]
     attributed = [n for n in better if -rows[n]["mean"] > control]
     return {
         "rows": rows,
         "controls": controls,
         "control_improvement": control,
+        "fractions": fractions,
         "better": len(better),
         "attributed": attributed,
         "n": len(rows),
-        "holds": len(better) >= 5,
+        # at least 70% of the included configurations, rounded up (5 of 7, 5 of 6)
+        "holds": len(better) >= math.ceil(0.7 * len(rows)),
     }
 
 
@@ -205,25 +256,36 @@ def h3():
 
 def h4():
     """
-    H4: DB+F vs C+F (decision); H4b: DB vs C without the flag (secondary,
-    added before any test result), in the main gap configurations and the
-    variance-regime arm.
+    H4: DB+F vs C+F. Decided by the relative criterion (difference in the
+    fraction of the gap closed within 25% of the gap, or DB+F better), added
+    before any result; the margin verdict of the log ratio is reported too.
+    H4b: DB vs C without the flag (secondary). Main gap configurations and
+    the variance-regime arm.
     """
 
-    rows, secondary = {}, {}
+    rows, secondary, fractions = {}, {}, {}
     for k, w in gap_configs():
         name = f"{config_name(k, w)} main"
         rows[name] = compare(primary(k, w, "DB+F"), primary(k, w, "C+F"))
         secondary[name] = compare(primary(k, w, "DB"), primary(k, w, "C"))
+        fractions[name] = {
+            "H4": gap_fraction(k, w, "DB+F", "C+F"),
+            "H4b": gap_fraction(k, w, "DB", "C"),
+        }
     holds = all(
-        r is not None and r["verdict"] in ("harmless", "better") for r in rows.values()
+        f["H4"] is not None and f["H4"]["verdict"] in ("equivalent", "better")
+        for f in fractions.values()
     )
     for k, w in VARIANCE_CONFIGS:
         for arm in ("small", "long"):
             name = f"{config_name(k, w)} {arm}"
             rows[name] = compare(primary(k, w, "DB+F", arm), primary(k, w, "C+F", arm))
             secondary[name] = compare(primary(k, w, "DB", arm), primary(k, w, "C", arm))
-    return {"rows": rows, "holds": holds, "H4b": secondary}
+            fractions[name] = {
+                "H4": gap_fraction(k, w, "DB+F", "C+F", arm),
+                "H4b": gap_fraction(k, w, "DB", "C", arm),
+            }
+    return {"rows": rows, "holds": holds, "H4b": secondary, "fractions": fractions}
 
 
 def mstar_settings():
@@ -317,6 +379,13 @@ def critic(kappa, window) -> dict | None:
 
 
 def h5():
+    """
+    H5: Spearman correlation between the critic and the gap over the noisy
+    configurations (kappa < 1, window and GRU), where onestep - direct is
+    mostly the Markov gap; in the Markov controls it is mostly approximation
+    error amplified by chaos (gap stage), so they are reported only.
+    """
+
     rows = {}
     for k, w in configs() + configs(gru=True):
         c = critic(k, w)
@@ -327,10 +396,11 @@ def h5():
             **c,
             "gap": mean_of(one) - mean_of(direct),
             "markov": is_markov(k, w),
+            "noisy": k < 1.0,
         }
-    if len(rows) < 3:
+    names = [n for n in rows if rows[n]["noisy"]]
+    if len(names) < 3:
         return {"rows": rows}
-    names = list(rows)
 
     def rank(xs):
         return np.argsort(np.argsort(xs))
@@ -338,14 +408,11 @@ def h5():
     crit = rank([rows[n]["critic"] for n in names])
     gap = rank([rows[n]["gap"] for n in names])
     spearman = float(np.corrcoef(crit, gap)[0, 1])
-    markov = [rows[n]["critic"] for n in names if rows[n]["markov"]]
-    others = [rows[n]["critic"] for n in names if not rows[n]["markov"]]
-    below = bool(markov and others and max(markov) < min(others))
     return {
         "rows": rows,
         "spearman": spearman,
-        "markov_below": below,
-        "holds": spearman >= 0.8 and below,
+        "n": len(names),
+        "holds": spearman >= 0.8,
     }
 
 
@@ -403,6 +470,13 @@ def main():
     for name in ("H1", "H2", "H3", "H4", "H-M*", "H5"):
         h = out[name]
         print(f"\n== {name}: holds={h.get('holds')}")
+        if name in ("H1", "H4"):
+            for key, f in h["fractions"].items():
+                for label, r in f.items() if name == "H4" else [("C+F vs C", f)]:
+                    if r is not None:
+                        print(
+                            f"  gap fraction {label:8s} {key:28s} {r['mean']:+.3f} ± {r['half']:.3f}  {r['verdict']}"
+                        )
         if name == "H4":
             for key, r in h["H4b"].items():
                 if r is not None:
