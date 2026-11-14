@@ -11,4 +11,6 @@ Not pre-registered and not part of e03; it imports e03's code without changing i
 - S2: $s$ is used: its norm grows with $k$ and correlates positively with the variance of the future $u$-encodings.
 - S3: no prediction for CL+s against CL+F beyond S1.
 
+**Open question for after the run** (recorded 2026-11-14, not tested in this pilot): which parts of the model read $s$. Here the decoder reads $u$ only; in TD-MPC2 the reward, value and policy heads play the decoder's role. Three arms: (a) heads read $u$ only; (b) heads read $u$ and $s$, with the gradient flowing into $s$; (c) heads read $u$ and $s$ with a stop-gradient on $s$, so $s$ stays trained by the consistency alone. Risk in (b): $s$ becomes an ordinary part of the latent and the split reduces to a larger latent; visible as a drop of the S2 correlation and MSE moving towards CL. Has an analogue on Hénon (a decoder reading $s$). A second open point for TD-MPC2: SimNorm normalizes groups of 8 dimensions, so $s$ must consist of whole groups with a fixed reference point instead of 0. Whether a second u/s pilot is needed, and what e04 tests, is decided after the results.
+
 Run: `uv run python experiments/explore_us/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).
