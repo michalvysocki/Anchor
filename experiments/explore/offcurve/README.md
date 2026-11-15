@@ -1,6 +1,6 @@
 # Exploratory pilot: what observation targets do to the latent beyond the trained horizon
 
-Not pre-registered and not part of e03; it imports e03's code and the horizon pilot's model without changing them. Decided on 2026-11-15 after the horizon pilot (`../explore_horizon`). There, at κ = 1, L = 1:
+Not pre-registered and not part of e03; it imports e03's code and the horizon pilot's model without changing them. Decided on 2026-11-15 after the horizon pilot (`../horizon`). There, at κ = 1, L = 1:
 - observation targets (C) and latent targets (CL) carried the same information about $y_{t+k}$ on the trained horizons (correlation 0.72 against 0.70 at $k = 4$);
 - beyond them C lost it within two or three steps, while CL kept it (0.09 against 0.37 at $k = 7$);
 - the mean latent norm did not explain the difference.
@@ -41,7 +41,7 @@ The AR data are drawn exactly from the stationary distribution (`anchor.envs.lgs
 
 **Smoke run** (300 steps, all six runs, 3 min 20 s): the pipeline runs end to end. The reproducibility check is meaningful only at the full 30 000 steps.
 
-Run: `caffeinate -i uv run python experiments/explore/explore_offcurve/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped). Use two threads, as in the horizon pilot, so the henon runs reproduce it exactly.
+Run: `caffeinate -i uv run python experiments/explore/offcurve/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped). Use two threads, as in the horizon pilot, so the henon runs reproduce it exactly.
 
 ## Results (2026-11-15)
 

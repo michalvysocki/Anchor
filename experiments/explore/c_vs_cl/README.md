@@ -1,6 +1,6 @@
 # Exploratory pilot: what keeps information in the rollout under latent targets
 
-Not pre-registered and not part of e03; it imports e03's code and the measurements of the off-curve pilot without changing them. Decided on 2026-11-15 after the off-curve pilot (`../explore_offcurve`), which refuted drift off the curve of encodings as the cause of the horizon reversal. At $k = 5$ in Hénon, C and CL lay equally far from the curve but differed in what the off-curve component carried (memory gain 0.16 against 0.35), so the difference lies in the content of the rollout state.
+Not pre-registered and not part of e03; it imports e03's code and the measurements of the off-curve pilot without changing them. Decided on 2026-11-15 after the off-curve pilot (`../offcurve`), which refuted drift off the curve of encodings as the cause of the horizon reversal. At $k = 5$ in Hénon, C and CL lay equally far from the curve but differed in what the off-curve component carried (memory gain 0.16 against 0.35), so the difference lies in the content of the rollout state.
 
 **Measure.** The information horizon $k^*$ is the first $k$ at which the correlation of the predictions with $y_{t+k}$ falls below 0.3, per seed. In the off-curve pilot (Hénon, κ = 1, L = 1, horizons 2..4) it was 6 for C in 10/10 seeds and 8–9 for CL. It is the first crossing, so a correlation that oscillates around 0.3 counts at its first dip.
 
@@ -34,4 +34,4 @@ A second caveat: the auxiliary terms are averaged over horizons, as in e03, so i
 - A step of C8 takes about 0.12 s.
 - The smoke run of all three arms (2 min) runs end to end.
 
-Run: `caffeinate -i uv run python experiments/explore/explore_c_vs_cl/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).
+Run: `caffeinate -i uv run python experiments/explore/c_vs_cl/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).

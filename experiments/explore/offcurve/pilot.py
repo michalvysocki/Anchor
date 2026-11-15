@@ -29,7 +29,7 @@ import torch
 
 HERE = Path(__file__).resolve().parent
 _spec = importlib.util.spec_from_file_location(
-    "horizon", HERE.parent / "explore_horizon" / "pilot.py"
+    "horizon", HERE.parent / "horizon" / "pilot.py"
 )
 horizon = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(horizon)
@@ -189,7 +189,7 @@ def main():
     only = sys.argv[1] if len(sys.argv) > 1 else ""
     path = OUT / "pilot.json"
     results = json.loads(path.read_text()) if path.exists() else {}
-    stored = HERE.parent / "explore_horizon" / "results" / "pilot.json"
+    stored = HERE.parent / "horizon" / "results" / "pilot.json"
     for index, (name, system) in enumerate(SYSTEMS):
         if system is None:
             data_train = Data(1.0, PAST, "large", list(SEEDS)).train

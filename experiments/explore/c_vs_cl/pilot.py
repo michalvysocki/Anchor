@@ -37,8 +37,8 @@ def _load(name, folder):
     return module
 
 
-horizon = _load("horizon", "explore_horizon")
-offcurve = _load("offcurve", "explore_offcurve")
+horizon = _load("horizon", "horizon")
+offcurve = _load("offcurve", "offcurve")
 
 from run import Data
 
@@ -128,7 +128,7 @@ def main():
     results = json.loads(path.read_text()) if path.exists() else {}
     data_train = Data(1.0, PAST, "large", list(SEEDS)).train
     v = horizon.long_validation(1.0, PAST)
-    reference = HERE.parent / "explore_offcurve" / "results" / "pilot.json"
+    reference = HERE.parent / "offcurve" / "results" / "pilot.json"
     if reference.exists():
         ref = json.loads(reference.read_text())
         for key in ("henon_C", "henon_CL"):

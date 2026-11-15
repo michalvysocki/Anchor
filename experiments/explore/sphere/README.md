@@ -16,7 +16,7 @@ Not pre-registered and not part of e03; it imports e03's code without changing i
 
 **Smoke run** (300 steps, κ = 0.8, L = 1): encodings of the sphere variants at norm 1.001–1.006 ± 0.01, the pipeline runs, about 30 ms per step with the selection stage of e03 running alongside.
 
-Run: `uv run python experiments/explore/explore_sphere/pilot.py` (results in `results/pilot.json`, finished configurations are skipped).
+Run: `uv run python experiments/explore/sphere/pilot.py` (results in `results/pilot.json`, finished configurations are skipped).
 
 ## Pilot 2: scale control and a centred sphere
 
@@ -27,7 +27,7 @@ Decided after pilot 1 (2026-11-14). Pilot 1 confirmed the identity for CL+S (the
 - Q2: the deficit matches the binned variance only for the sphere variants (CL+S, CL+SC), not for CL+N.
 - Q3: centring makes the norm track the growing uncertainty along the rollout more faithfully: for $k = 1..6$ (window 1), the mean absolute difference between the deficit $1 - \|u_k\|^2$ and the binned variance of $\varphi(z_{t+k})$ given $y_t$ is smaller for CL+SC than for CL+S. (First drafted as "the norm falls more clearly"; redefined by a check before the full run, because centring changes the scale of the norms and a steeper fall alone is not evidence that the norm measures the uncertainty.)
 
-Run: `uv run python experiments/explore/explore_sphere/pilot2.py` (results in `results/pilot2.json`).
+Run: `uv run python experiments/explore/sphere/pilot2.py` (results in `results/pilot2.json`).
 
 ## Results of pilot 1 (3 seeds, validation)
 
