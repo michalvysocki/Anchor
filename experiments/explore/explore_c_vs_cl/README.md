@@ -34,4 +34,4 @@ A second caveat: the auxiliary terms are averaged over horizons, as in e03, so i
 - A step of C8 takes about 0.12 s.
 - The smoke run of all three arms (2 min) runs end to end.
 
-Run: `caffeinate -i uv run python experiments/explore_c_vs_cl/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).
+Run: `caffeinate -i uv run python experiments/explore/explore_c_vs_cl/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).

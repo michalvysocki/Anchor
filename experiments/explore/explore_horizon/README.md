@@ -13,7 +13,7 @@ Training at κ = 1 is noise-free, where single seeds can differ widely (property
 
 **Smoke run** (300 steps, κ = 1): the pipeline runs, the long validation windows start with the same values as e03's, about 0.1 s per step for ten models.
 
-Run: `uv run python experiments/explore_horizon/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).
+Run: `uv run python experiments/explore/explore_horizon/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).
 
 ## Results (2026-11-15)
 

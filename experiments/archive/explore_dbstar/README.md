@@ -15,4 +15,4 @@ Not pre-registered and not part of e03; it imports e03's code without changing i
 
 **Smoke run** (1300 steps, κ = 0.5): the pipeline runs past the warm-up, the weights move (at $k = 4$: 0.82, 0.18, 0.00 on the anchors $p = 2, 3$ and on $y_{t+k}$), about 14 ms per step with four threads.
 
-Run: `uv run python experiments/explore_dbstar/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).
+Run: `uv run python experiments/archive/explore_dbstar/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).

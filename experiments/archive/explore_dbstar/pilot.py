@@ -33,7 +33,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-E03 = Path(__file__).resolve().parents[1] / "e03_henon_latent"
+E03 = Path(__file__).resolve().parents[2] / "e03_henon_latent"
 sys.path.insert(0, str(E03))
 
 from design import SIZES
