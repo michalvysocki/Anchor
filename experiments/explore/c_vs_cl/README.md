@@ -35,3 +35,53 @@ A second caveat: the auxiliary terms are averaged over horizons, as in e03, so i
 - The smoke run of all three arms (2 min) runs end to end.
 
 Run: `caffeinate -i uv run python experiments/explore/c_vs_cl/pilot.py "" 2` (results in `results/pilot.json`, finished runs are skipped).
+
+## Results (2026-11-16)
+
+All three arms finished. C and CL are the off-curve pilot's runs (same seeds, horizons 2..4). The variance of $y$ is 0.99–1.00 at every $k$.
+
+Information horizon $k^*$ per seed (seeds 300–309):
+
+| arm | $k^*$ |
+|---|---|
+| C | 6 6 6 6 6 6 6 6 6 6 |
+| CL | 8 9 9 9 9 8 8 8 9 9 |
+| C8 | 9 9 9 9 9 9 9 9 9 9 |
+| CL8 | 10 9 10 10 2 9 10 10 10 10 |
+| C_sgdec | 6 6 6 7 6 6 6 6 6 6 |
+
+Rollout MSE, median over seeds [min, max]:
+
+| arm | $k = 1..4$ | $k = 5..8$ | $k = 9..14$ |
+|---|---|---|---|
+| C | 0.274 [0.273, 0.275] | 1.123 [0.984, 1.521] | 1.392 [1.068, 2.414] |
+| CL | 0.299 [0.287, 0.369] | 0.819 [0.749, 0.873] | 1.295 [1.235, 1.367] |
+| C8 | 0.285 [0.279, 0.288] | 0.595 [0.568, 0.605] | 1.775 [1.204, 4.198] |
+| CL8 | 0.364 [0.303, 0.718] | 0.722 [0.656, 0.899] | 1.006 [0.991, 1.199] |
+| C_sgdec | 0.279 [0.277, 0.281] | 1.252 [1.006, 1.528] | 1.635 [1.119, 2.019] |
+
+Number of seeds (of 10) with the lower MSE:
+
+| | $k = 1..4$ | $k = 5..8$ | $k = 9..14$ |
+|---|---|---|---|
+| C8 vs C | 10 | 10 | 2 |
+| C8 vs CL8 | 10 | 10 | 0 |
+| CL8 vs CL | 1 | 8 | 10 |
+| C_sgdec vs C | 0 | 4 | 5 |
+
+Medians over seeds at $k = 2, 4, 8, 10, 12$ (sharpness is the standard deviation of the predictions over that of $y$; for the prediction that minimizes MSE it equals the correlation):
+
+| | C8 | CL8 |
+|---|---|---|
+| correlation | .85, .72, .62, .07, −.01 | .78, .67, .50, .20, .11 |
+| sharpness | .86, .72, .60, .66, .65 | .65, .57, .40, .30, .29 |
+| distance to the curve | .37, 1.21, 3.45, 4.75, 6.02 | .26, .29, .39, .42, .42 |
+| decoder shift | .44, 1.02, .73, 1.64, 1.70 | .24, .27, .30, .43, .44 |
+
+C8's bias grows beyond $k = 8$ (median −0.13 at $k = 10$, −0.28 at $k = 14$).
+
+- **Q1 holds: (a).** $k^*(\mathrm{C8}) = 9$ in 10/10 seeds. The correlation falls from .62 at $k = 8$ to .18 at $k = 9$; CL8 still has .32 at $k = 9$, so this is not the system's ceiling. Beyond $k = 8$ C8 is worse than C (lower in 2/10 seeds over $k = 9..14$, median 1.78, above the variance of $y$).
+- **Q2 fails.** $k^*(\mathrm{C\_sgdec})$ is 6 in 9 seeds and 7 in one. The MSE condition holds (+0.002 to +0.007 over C at $k = 1..4$); the information horizon is what fails. The correlation profile of C_sgdec matches C's, so cutting the decoder off the multi-step terms changes nothing.
+- **Q3.** Against CL, $k^*(\mathrm{CL8})$ is larger in 8 seeds, equal in 1 (301) and smaller in 1 (304). In seed 304 the value 2 comes from the first-crossing definition: the correlation dips to −0.15 at $k = 2$ and returns to 0.30–0.63 over $k = 3..8$ (counted from $k = 3$, $k^* = 9$). The seed is nonetheless poorly fitted at short horizons (MSE 1.33 at $k = 2$, 0.718 over $k = 1..4$).
+
+**Reading.** The horizon reversal moves with the trained horizon: with horizons 2..8, C8 is better than CL8 up to $k = 8$ and worse beyond (10/10 both ways), as C and CL were around $k = 4$. Observation targets keep information up to the trained horizon and lose it in the next step; co-adaptation of the decoder is excluded. Read after the fact, not predicted: C8 is calibrated up to $k = 8$ (sharpness equals correlation) and beyond it keeps the amplitude of its predictions without the information; CL8 is under-sharp inside the window (.65 against .78 at $k = 2$) and lowers its amplitude with its information beyond it. C8's state leaves the curve far already inside the window (1.21 at $k = 4$) while staying informative, and the decoder reads that displacement (decoder shift about 1), so drift in directions the decoder ignores does not describe it. Limits: one system, two trained horizons, a calibration reading made after the results, and CL8's short-horizon cost confounded with the 1/7 weights.
