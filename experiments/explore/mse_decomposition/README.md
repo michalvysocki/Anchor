@@ -30,3 +30,32 @@ The first two terms can be removed by a linear rescaling of the predictions; the
 - A prediction holds if both of its parts hold. It is refuted if either part is refuted, and inconclusive otherwise.
 - P5, per arm and range on the median share: confirmed below 10%; not confirmed from 10% to 40%; refuted above 40%, or at 10% or more while exceeding the median share of miscalibration.
 - Correctness check: the three terms sum to the MSE within 1% for every seed and $k$. If not, the code is checked and nothing is interpreted.
+
+## Results (2026-11-23)
+
+Reproduce with `python experiments/explore/mse_decomposition/analyze.py`; per-seed shares are in `results/decomposition.json`. Correctness check passed: the three terms sum to the MSE within 0.3% for every seed and $k$.
+
+| | Verdict | Numbers |
+|---|---|---|
+| P1 | refuted | information largest in 10/10, but miscalibration is 20.4% of the MSE (threshold 25%) |
+| P2 | holds | information largest in 10/10; miscalibration 0.013 against a limit of 0.102 |
+| P3 | refuted | miscalibration largest in 2/10; its share changes by −4.7 percentage points |
+| P4 | holds | information largest in 10/10 |
+| P5 | refuted | holds for CL; for C at $k = 15..20$, $b^2$ is 17.5% of the MSE and exceeds miscalibration (12.8%) |
+
+Median shares of the MSE over 10 seeds:
+
+| Arm | Range | $b^2$ | Miscalibration | Lost information | Largest in seeds ($b^2$ / miscalibration / information) |
+|---|---|---|---|---|---|
+| C | $k = 7..8$ | 0.025 | 0.204 | 0.774 | 0 / 0 / 10 |
+| C | $k = 15..20$ | 0.175 | 0.128 | 0.387 | 4 / 2 / 4 |
+| CL | $k = 7..8$ | 0.022 | 0.013 | 0.952 | 0 / 0 / 10 |
+| CL | $k = 15..20$ | 0.017 | 0.175 | 0.785 | 0 / 0 / 10 |
+
+Read after the fact, not predicted (10 seeds, one system, one $K$):
+
+- **The edge of C has two steps.** From $k = 6$ to 7 the median MSE grows by 0.528, mostly lost information (+0.317, largest in 9/10 seeds), with miscalibration +0.164 and $b^2$ +0.025. From $k = 7$ to 8 it grows by 0.137, mostly miscalibration (+0.094, largest in 7/10). In CL the step from 6 to 7 adds 0.095, with no growth of miscalibration.
+- **CL keeps more information at the edge.** With $V \approx 1$, $\rho \approx 0.27$ (C) and 0.48 (CL) at $k = 7$, and 0.15 and 0.34 at $k = 8$.
+- **The far tail of C has no single regime.** At $k = 15..20$, $\rho \approx 0$ in every seed. Seeds 0, 5, 6, 8 are dominated by a shift of the mean (MSE 3.2–10.1), seeds 2, 7 by amplitude ($s \ge 1.09$, MSE 2.3–3.0), and seeds 1, 3, 4, 9 by lost information with a contracted amplitude ($s \le 0.42$, MSE 1.1–1.4). Six of the 10 seeds exceed $2V$ throughout this range. The grouping is post hoc.
+- **CL rarely drifts.** The median $b^2$ is about 2% of the MSE; seeds 8 and 9 reach 22% and 18% at $k = 15..20$. No seed of CL exceeds $2V$ in this range.
+- **The MSE in the tail favours contraction.** With $\rho = 0$, a constant at the mean has MSE $V$, while a faithful simulation of the system has $2V$. The advantage of CL at $k = 15..20$ is therefore not evidence of more information; a shift of the mean is a defect under both readings.
