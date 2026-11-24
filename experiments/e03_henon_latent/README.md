@@ -204,6 +204,26 @@ All runs at κ = 1 reached the cap of 100 000 steps (4 of the 12 configurations)
 2. **H1 and H4 use the 6 window configurations whose relative gap over $k = 1..4$ is at least 1% on validation**; κ = 0.5, L = 4 (0.99% on validation, 1.03% on test) is reported descriptively (first decided on the test numbers as all 7, corrected by the methodological review).
 3. **Control for H1.** In the Markov controls (κ = 1, L = 2 and 4) the flag has no model bias to remove, so its effect there measures what it does for other reasons, such as damping the growth of error under chaos. The effect in a gap configuration is attributed to the Markov gap only if its improvement, −(mean log ratio of C+F to C), exceeds the largest improvement in the Markov controls; the count of attributed configurations is reported with H1.
 
+## Deviation: the final stage runs on a GPU (2026-11-24)
+
+The design states that all stages run on CPU. The selection stage ran on the MacBook (CPU, 2 threads per process); the final stage runs on the GPU of the club server (Quadro RTX 8000, Turing, no TF32; Linux, torch 2.8.0+cu128, commit ab30086). Every final job runs on this one device, so the device is never confounded with a variant or a seed. Reason: a timing benchmark (final stage, 1000 steps, 30 models) gave the GPU 7.5–9.6× the throughput of the best use of the server's 30 CPU threads, about 2 days against 18.
+
+Equivalence check, rule fixed before it ran: five selection jobs rerun on the GPU and, as a platform control, on the server's CPU, compared model by model with the MacBook results (same initial weights and training batches, generated on the CPU). Per group, the 90% interval of the mean paired difference of the test MSE over $k = 1..4$, in units of the validation gap of the configuration, had to lie within ±0.125 gap (half the equivalence band of H4). The light group was inconclusive with one job (3 models) and, as the rule provided, was judged with a second job added (6 models).
+
+| Group | Jobs | GPU − MacBook (gap) | 90% interval | Verdict |
+|---|---|---|---|---|
+| light | onestep, κ = 0.5, L = 1 and 2 | −0.023 | [−0.058, +0.013] | within |
+| medium | C, κ = 0.5, L = 1 | −0.032 | [−0.050, −0.015] | within |
+| heavy | C, κ = 0.5, GRU | −0.031 | [−0.064, +0.001] | within |
+| κ = 1 | C, κ = 1, L = 1 | −0.001 | [−0.006, +0.004] | within |
+
+Recorded with it:
+- The difference is one of platform rather than device: in the GRU job the GPU and the server's CPU agree model by model, and both differ from the MacBook by about −0.03 gap (about 0.07% of the MSE) at κ = 0.5.
+- A single model can move by more than a gap when a small numerical difference shifts the step at which the stopping rule ends training (one model: +1.48 gap on the server's CPU, stopped at 28 000 steps against 64 000 on the MacBook). Training is deterministic on one device; the same sensitivity acts between seeds within e03.
+- The selected λ changes between platforms where the validation MSE of the λ values differs by 0.015–0.06 gap (near ties); the final stage uses the λ selected on the MacBook.
+- In the Markov control κ = 1, L = 2 (MSE about 1e-4) the mean log ratio GPU/MacBook is −0.03 with a 90% interval [−0.85, +0.78]; no feasible check resolves the margin there, so it is reported descriptively only.
+- Results and scripts: `results/device_check/`.
+
 ## Known limitations
 
 - The optimal predictor of a noisy Hénon map is not available in closed form; the direct network is an estimate of the reachable level, not the optimum.
