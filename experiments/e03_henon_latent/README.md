@@ -253,6 +253,8 @@ It ran on the MacBook CPU (58 min, mostly the critic of H5) and wrote `results/t
 
 Every model is capped in 7 jobs: direct at κ = 1 with L = 2 and 4, and C, C+F, M\*, M\*+F and direct at κ = 1 with the GRU encoder. No job has a mean diverged fraction above 0.5; onestep with the GRU encoder at κ = 1 diverges in 15% of the test windows on average (15 of 30 models with at least one diverged window, at most 94%), reported in its descriptive row.
 
+**Reading (2026-11-26).** H1, H2, H4, H-M\* and H5 fail (outcome R3); H3 has no single verdict. C alone closes 0.99–1.00 of the gap over $k = 1..4$ in κ = 1, L = 1 and in the noisy window configurations except κ = 0.5, L = 1 (0.85), and 1.04 and 1.30 with the GRU encoder at κ = 0.8 and 0.5. The flag, the debiased bootstrap, M\* and the critic add nothing beyond it. H2 fails only through the flag without a target (onestep+F); every Anchor target at every λ is better than onestep in the Markov controls, where 44–47% of the models reach the step cap, so H2 is read with that caveat. Conclusion: the extended method (flag, bootstrapped targets, M\*, critic) is not carried forward; within the trained horizon the gap is closed by the simple target C. e03 measures only inside the trained horizon and says nothing beyond it.
+
 ## Known limitations
 
 - The optimal predictor of a noisy Hénon map is not available in closed form; the direct network is an estimate of the reachable level, not the optimum.
