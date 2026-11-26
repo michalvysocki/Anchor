@@ -224,6 +224,35 @@ Recorded with it:
 - In the Markov control κ = 1, L = 2 (MSE about 1e-4) the mean log ratio GPU/MacBook is −0.03 with a 90% interval [−0.85, +0.78]; no feasible check resolves the margin there, so it is reported descriptively only.
 - Results and scripts: `results/device_check/`.
 
+## Final stage run and evaluation (2026-11-26)
+
+The final stage ran on the club GPU from 2026-11-24 14:53 to 2026-11-26 15:20. A planned reboot of the server on 2026-11-25 at 13:20 stopped it at 107 of 195 jobs; it was resumed with the same command, the finished jobs were skipped (a job counts as done once its `.pt` exists) and the 4 interrupted jobs were rerun from the start. Checks before the evaluation: 195 `.json` and 195 `.pt` files, the set of jobs equal to `plan()`, 30 seeds per job (90 in the 12 Markov-control jobs), every result with `device: cuda` on the same machine, no non-finite test MSE, every file identical (SHA-256) after the copy to the MacBook.
+
+**Evaluation on a CPU-only machine.** `run.py` saves the model parameters on the CPU but the M\* mixture weights as trained, so in the final stage they are CUDA tensors and `torch.load` fails on the MacBook. `evaluate.py` uses only the parameters (`["state"]`); the weights are also stored in the JSON files. The evaluation was run unchanged through a wrapper that only sets the default `map_location` of `torch.load`, from this directory:
+
+```python
+import functools, sys
+import torch
+torch.load = functools.partial(torch.load, map_location="cpu")
+sys.path.insert(0, ".")
+import evaluate
+evaluate.main()
+```
+
+It ran on the MacBook CPU (58 min, mostly the critic of H5) and wrote `results/test_results.json`.
+
+**Models stopped by the step cap** (100 000 steps, reported as the setup requires): 1053 of 6570 models (16.0%) in 50 of 195 jobs, almost all at κ = 1. The shares are close to those of the selection stage on the MacBook.
+
+| Configuration | Final stage (GPU) | Selection stage (MacBook) |
+|---|---|---|
+| κ = 1, GRU | 203 / 240 (85%) | 52 / 60 (87%) |
+| κ = 1, L = 4 | 299 / 630 (47%) | 32 / 63 (51%) |
+| κ = 1, L = 2 | 512 / 1170 (44%) | 101 / 213 (47%) |
+| κ = 1, L = 1 | 33 / 810 (4%) | 10 / 213 (5%) |
+| κ = 0.8 and 0.5, all | 6 / 3720 | 2 / 960 |
+
+Every model is capped in 7 jobs: direct at κ = 1 with L = 2 and 4, and C, C+F, M\*, M\*+F and direct at κ = 1 with the GRU encoder. No job has a mean diverged fraction above 0.5; onestep with the GRU encoder at κ = 1 diverges in 15% of the test windows on average (15 of 30 models with at least one diverged window, at most 94%), reported in its descriptive row.
+
 ## Known limitations
 
 - The optimal predictor of a noisy Hénon map is not available in closed form; the direct network is an estimate of the reachable level, not the optimum.
